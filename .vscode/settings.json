@@ -1,0 +1,14 @@
+{
+    "C_Cpp.intelliSenseEngine": "default",
+    "idf.espIdfPathWin": "g:\\ESP\\esp-idf-v6.0",
+    "idf.pythonInstallPath": "C:\\Users\\zen\\.espressif\\tools\\idf-python\\3.11.2\\python.exe",
+    "idf.openOcdConfigs": [
+        "board/esp32c2-ftdi.cfg"
+    ],
+    "idf.portWin": "COM11",
+    "idf.toolsPathWin": "C:\\Users\\zen\\.espressif",
+    "idf.customExtraVars": {
+        "IDF_TARGET": "esp32c2"
+    },
+    "editor.fontSize": 25,
+}

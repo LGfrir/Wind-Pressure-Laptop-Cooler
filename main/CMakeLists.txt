@@ -1,0 +1,32 @@
+idf_component_register(
+    SRCS
+        "main.c"
+        "Basic/i2c_bus.c"
+        "ModuleDriver/encoder.c"
+        "ModuleDriver/oled.c"
+        "ModuleDriver/fan.c"
+        "Tasks/oled_display_task.c"  
+        "Tasks/event_handler.c"
+        "oled/oled_menu.c"
+        "ModuleDriver/system_monitor.c"
+        "test.c"
+        "ModuleDriver/oled_plot.c"
+        "ModuleDriver/light.c"
+    INCLUDE_DIRS
+        "."
+        ".Include"
+    REQUIRES
+        esp_driver_i2c
+        freertos
+        esp_driver_gpio
+        esp_timer
+        esp_driver_ledc
+        esp_driver_uart
+        nvs_flash
+        bt
+        esp_wifi 
+        esp_event 
+        lwip 
+        esp_netif
+        driver
+)
