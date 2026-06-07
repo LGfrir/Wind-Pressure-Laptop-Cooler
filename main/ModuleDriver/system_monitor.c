@@ -389,7 +389,7 @@ system_monitor_get_task_list(system_task_info_t* task_list,
         }
 
 #if (configNUMBER_OF_CORES > 1)
-        task_list[i].core_id = task_status_array[i].xCoreID;
+        task_list[i].core_id = xTaskGetCoreID(task_status_array[i].xHandle);
 #endif
     }
 
@@ -564,7 +564,7 @@ void system_monitor_print_task_list(void) {
                 .ulRunTimeCounter,
             (unsigned int)task_status_array[i]
                 .usStackHighWaterMark,
-            (int)task_status_array[i].xCoreID);
+            (int)xTaskGetCoreID(task_status_array[i].xHandle));
 #else
         ESP_LOGI(TAG,
                  "%-16s %-10s %-5u %7.2f%% %-12lu %-10u",

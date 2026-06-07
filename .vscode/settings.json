@@ -1,14 +1,21 @@
 {
     "C_Cpp.intelliSenseEngine": "default",
-    "idf.espIdfPathWin": "g:\\ESP\\esp-idf-v6.0",
-    "idf.pythonInstallPath": "C:\\Users\\zen\\.espressif\\tools\\idf-python\\3.11.2\\python.exe",
+    "idf.currentSetup": "manual",
+    "idf.espIdfPath": "E:\\ESP-IDF\\esp-idf-v6.0.1",
+    "idf.espIdfPathWin": "E:\\ESP-IDF\\esp-idf-v6.0.1",
+    "idf.toolsPath": "E:\\ESP-IDF\\esp-idf-v6.0.1\\.espressif",
+    "idf.toolsPathWin": "E:\\ESP-IDF\\esp-idf-v6.0.1\\.espressif",
+    "idf.pythonBinPath": "E:\\ESP-IDF\\esp-idf-v6.0.1\\.espressif\\python_env\\idf6.0_py3.10_env\\Scripts\\python.exe",
+    "idf.pythonBinPathWin": "E:\\ESP-IDF\\esp-idf-v6.0.1\\.espressif\\python_env\\idf6.0_py3.10_env\\Scripts\\python.exe",
+    "idf.pythonInstallPath": "E:\\ESP-IDF\\esp-idf-v6.0.1\\.espressif\\tools\\idf-python\\3.11.2\\python.exe",
+    "idf.gitPathWin": "E:\\ESP-IDF\\esp-idf-v6.0.1\\.espressif\\tools\\idf-git\\2.39.2\\cmd\\git.exe",
+    "idf.openOcdPathWin": "E:\\ESP-IDF\\esp-idf-v6.0.1\\.espressif\\tools\\openocd-esp32\\v0.12.0-esp32-20260304\\openocd-esp32\\bin\\openocd.exe",
     "idf.openOcdConfigs": [
-        "board/esp32c2-ftdi.cfg"
+        "board/esp32s3-builtin.cfg"
     ],
     "idf.portWin": "COM11",
-    "idf.toolsPathWin": "C:\\Users\\zen\\.espressif",
     "idf.customExtraVars": {
-        "IDF_TARGET": "esp32c2"
+        "IDF_TARGET": "esp32s3"
     },
-    "editor.fontSize": 25,
+    "editor.fontSize": 25
 }

@@ -24,8 +24,6 @@ typedef enum {
     LIGHT_MODE_ROUND
 } light_mode_t;
 
-
-
 typedef struct light{
     light_mode_t mode;
     uint8_t brightness;
@@ -37,4 +35,8 @@ void light_task(void* arg);
 void light_set_mode(light_mode_t mode);
 void light_init();
 void light_test_task(void* arg);
+
+// 总light 控制
+light_t* light_get_cfg(void);
+
 #endif

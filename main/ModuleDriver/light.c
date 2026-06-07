@@ -38,31 +38,14 @@
 #define TAG "LIGHT"
 #define LIGHT_MIN_PERIOD_MS 10
 
-
 /* ========================= 硬件配置 ========================= */
 
 #define LIGHT_GPIO          FAN_ARGB_PIN
 
 /* ========================= WS2812 时序参数 ========================= */
-/*
- * 以下延时不是“绝对时间”，而是基于 ESP32-C2 运行频率的经验值。
- * 如果颜色异常、闪烁、部分灯不亮，需要根据示波器波形微调。
- *
- * 目标大致：
- *   0码：高约 0.35~0.45us，低约 0.8~0.9us
- *   1码：高约 0.7~0.85us，低约 0.4~0.55us
- */
 
 #define LIGHT_RESET_US      80
 
-/*
- * ESP32-C2 常见主频 120MHz
- * 1 cycle ≈ 8.33ns
- *
- * 这里用一组经验 delay 宏：
- * - 一个 NOP 不等于完整延时，因为还有寄存器写、循环、分支等额外耗时
- * - 所以下面数值是“经验值”，不是数学精确值
- */
 #define NOP() __asm__ __volatile__("nop")
 
 #define DELAY_SHORT()   do { \
@@ -81,34 +64,47 @@
 #define DELAY_T1H()  do { DELAY_LONG(); DELAY_SHORT(); } while (0)
 #define DELAY_T1L()  do { DELAY_SHORT(); } while (0)
 
+/* ========================= 内部状态 ========================= */
+
 light_t s_light;
+breath_cfg_t s_breath_cfg;
 
-
-/* ========================= GPIO 快速操作 ========================= */
 /*
- * 对 ESP32-C2，GPIO0~31 可通过 out_w1ts / out_w1tc 快速置位/清零
+ * @brief 获取灯效全局配置对象。
  */
+light_t* light_get_cfg(void) {
+    return &s_light;
+}
 
+/*
+ * @brief 将 GPIO 输出拉高。
+ */
 #define GPIO_MASK   (1UL << LIGHT_GPIO)
 
 static inline void light_gpio_high(void)
 {
+#if CONFIG_IDF_TARGET_ESP32S3
+    GPIO.out_w1ts = GPIO_MASK;
+#else
     GPIO.out_w1ts.val = GPIO_MASK;
+#endif
 }
 
+/*
+ * @brief 将 GPIO 输出拉低。
+ */
 static inline void light_gpio_low(void)
 {
+#if CONFIG_IDF_TARGET_ESP32S3
+    GPIO.out_w1tc = GPIO_MASK;
+#else
     GPIO.out_w1tc.val = GPIO_MASK;
+#endif
 }
 
-/* ========================= 内部状态 ========================= */
-
-static uint8_t s_pixels[LIGHT_PIXEL_COUNT][3];   /* GRB */
-static bool s_inited = false;
-static portMUX_TYPE s_light_mux = portMUX_INITIALIZER_UNLOCKED;
-
-/* ========================= 底层发送 ========================= */
-
+/*
+ * @brief 发送一个 WS2812 的 0 比特。
+ */
 static inline void light_send_bit_0(void)
 {
     light_gpio_high();
@@ -117,6 +113,9 @@ static inline void light_send_bit_0(void)
     DELAY_T0L();
 }
 
+/*
+ * @brief 发送一个 WS2812 的 1 比特。
+ */
 static inline void light_send_bit_1(void)
 {
     light_gpio_high();
@@ -125,6 +124,9 @@ static inline void light_send_bit_1(void)
     DELAY_T1L();
 }
 
+/*
+ * @brief 按 WS2812 时序发送一个字节。
+ */
 static inline void light_send_byte(uint8_t data)
 {
     for (int i = 0; i < 8; i++) {
@@ -137,21 +139,36 @@ static inline void light_send_byte(uint8_t data)
     }
 }
 
+/*
+ * @brief 发送复位信号，保持低电平足够长时间。
+ */
 static inline void light_send_reset(void)
 {
     light_gpio_low();
     esp_rom_delay_us(LIGHT_RESET_US);
 }
 
+static uint8_t s_pixels[LIGHT_PIXEL_COUNT][3];   /* GRB */
+static bool s_inited = false;
+static portMUX_TYPE s_light_mux = portMUX_INITIALIZER_UNLOCKED;
 
+/*
+ * @brief 获取下一个灯珠索引。
+ */
 uint8_t idx_next(int x) {
     return (x + 1) % LIGHT_PIXEL_COUNT;
 }
 
+/*
+ * @brief 获取上一个灯珠索引。
+ */
 uint8_t idx_past(int x) {
     return (x - 1) < 0 ? LIGHT_PIXEL_COUNT - 1 : x - 1;
 }
 
+/*
+ * @brief 按当前亮度比例更新像素缓存。
+ */
 void light_brightness_update(void) {
     for(int i = 0;i < LIGHT_PIXEL_COUNT;i++) {
         s_pixels[i][0] = s_pixels[i][0] * s_light.brightness / 255;
@@ -160,8 +177,9 @@ void light_brightness_update(void) {
     }
 }
 
-/* ========================= 对外 API ========================= */
-
+/*
+ * @brief 初始化灯效驱动，配置 GPIO 并清空像素缓存。
+ */
 void light_init(void)
 {
     if (s_inited) {
@@ -190,8 +208,16 @@ void light_init(void)
     light_set_mode(LIGHT_MODE_STATIC);
     s_light.period = 10;
     s_light.brightness = 255; 
+
+    s_breath_cfg.switch_ms = 1000;
+    s_breath_cfg.color.r = 147;
+    s_breath_cfg.color.g = 255;
+    s_breath_cfg.color.b = 0;
 } 
 
+/*
+ * @brief 设置指定灯珠的颜色。
+ */
 void light_set_pixel(uint8_t index, uint8_t r, uint8_t g, uint8_t b)
 {
     if (index >= LIGHT_PIXEL_COUNT) {
@@ -203,6 +229,9 @@ void light_set_pixel(uint8_t index, uint8_t r, uint8_t g, uint8_t b)
     s_pixels[index][2] = b;
 }
 
+/*
+ * @brief 将所有灯珠填充为指定颜色。
+ */
 void light_fill(uint8_t r, uint8_t g, uint8_t b)
 {
     for (int i = 0; i < LIGHT_PIXEL_COUNT; i++) {
@@ -212,6 +241,9 @@ void light_fill(uint8_t r, uint8_t g, uint8_t b)
     }
 }
 
+/*
+ * @brief 将颜色数组写入像素缓存。
+ */
 void light_fill_advance(color_t* color)
 {
     for (int i = 0; i < LIGHT_PIXEL_COUNT; i++) {
@@ -221,18 +253,23 @@ void light_fill_advance(color_t* color)
     }
 }
 
-
+/*
+ * @brief 清空所有像素缓存。
+ */
 void light_clear(void)
 {
     memset(s_pixels, 0, sizeof(s_pixels));
 }
 
+/*
+ * @brief 将像素缓存发送到灯珠。
+ */
 void light_show(void)
 {
+    
     if (!s_inited) {
         return;
     }
-
     portENTER_CRITICAL(&s_light_mux);
 
     for (int i = 0; i < LIGHT_PIXEL_COUNT; i++) {
@@ -249,19 +286,22 @@ void light_show(void)
 
 /* ========================= 示例灯效任务 ========================= */
 
-/* ============================================================== 
-
-                            RAINBOW
-
-================================================================= */
-
+/*
+ * @brief 彩虹渐变灯效配置对象。
+ */
 rainbow_cfg_t s_rainbow_eff;
 bool s_rainbow_init;
+
+/*
+ * @brief 获取彩虹灯效配置。
+ */
 rainbow_cfg_t* light_rainbow_get_cfg(void) {
     return &s_rainbow_eff;
 }
 
-
+/*
+ * @brief 生成彩虹渐变灯效。
+ */
 void light_rainbow(void) {
     // init
     if(!s_rainbow_init) {
@@ -303,25 +343,38 @@ void light_rainbow(void) {
 
 }
 
-breath_cfg_t s_breath_cfg;
+/*
+ * @brief 呼吸灯效配置对象。
+ */
 bool s_breath_init;
-breath_cfg_t* light_breathe_get_cfg(void) {
+
+/*
+ * @brief 获取呼吸灯效配置。
+ */
+breath_cfg_t* light_get_breath_cfg(void) {
     return &s_breath_cfg;
 }
 
+/*
+ * @brief 生成呼吸渐变灯效。
+ */
 void light_breathe(void) {
     if(!s_breath_init) {
         s_breath_cfg.switch_ms = 1000;
+        s_breath_cfg.color.r = 147;
+        s_breath_cfg.color.g = 255;
+        s_breath_cfg.color.b = 0;
         s_breath_init = true;
     }
     
     const int fade_steps = 100;
 
 
-    static const color_t colors[] = {
-        {147, 255, 255},
+    color_t colors[] = {
+        {  0,   0,   0},
         {  0,   0,   0},
     };
+    colors[0] = s_breath_cfg.color;
 
     const int color_count = sizeof(colors) / sizeof(colors[0]);
 
@@ -345,16 +398,24 @@ void light_breathe(void) {
         next = (next + 1) % color_count;
     }
 
-
 }
 
-
+/*
+ * @brief 随机闪烁灯效配置对象。
+ */
 bool s_random_flash_init;
 random_cfg_t s_random_cfg;
+
+/*
+ * @brief 获取随机闪烁灯效配置。
+ */
 random_cfg_t* light_get_random_cfg(void) {
     return &s_random_cfg;
 }
 
+/*
+ * @brief 生成随机闪烁灯效。
+ */
 void light_random_flash(void) {
     if(!s_random_flash_init) {
         s_random_cfg.mode = false;
@@ -383,13 +444,22 @@ void light_random_flash(void) {
     ls = !ls;
 }
 
+/*
+ * @brief 闪烁灯效配置对象。
+ */
 blink_cfg_t s_blink_cfg;
 bool s_blink_init;
+
+/*
+ * @brief 获取闪烁灯效配置。
+ */
 blink_cfg_t* light_get_blink_cfg(void) {
     return &s_blink_cfg;
 }
 
-
+/*
+ * @brief 生成闪烁灯效。
+ */
 void light_blink(void) {
     if(!s_blink_init) {
         static color_t color_static[] = {
@@ -414,16 +484,25 @@ void light_blink(void) {
         light_fill(colors[1].r, colors[1].g, colors[1].b);
     }
     ls = !ls;
-    vTaskDelay((int)s_blink_cfg.period - (int)s_light.period >= 0 ? s_blink_cfg.period - s_light.period : 0);
+    vTaskDelay(pdMS_TO_TICKS((int)s_blink_cfg.period - (int)s_light.period >= 0 ? s_blink_cfg.period - s_light.period : 0));
 }
 
-
+/*
+ * @brief 自定义呼吸灯效配置对象。
+ */
 custom_breath_cfg_t s_custom_breath_cfg;
 bool s_custom_breath_init;
+
+/*
+ * @brief 获取自定义呼吸灯效配置。
+ */
 custom_breath_cfg_t* light_get_custom_breath_cfg(void) {
     return &s_custom_breath_cfg;
 }
 
+/*
+ * @brief 生成自定义多段渐变呼吸灯效。
+ */
 void light_custom_breath(void) {
     if(!s_custom_breath_init) {
         static color_t colors[] = {
@@ -482,12 +561,22 @@ void light_custom_breath(void) {
 
 }
 
+/*
+ * @brief 流光灯效配置对象。
+ */
 chase_cfg_t s_chase_cfg;
 bool s_chase_init;
+
+/*
+ * @brief 获取流光灯效配置。
+ */
 chase_cfg_t* light_get_chase_cfg(void) {
     return &s_chase_cfg;
 }
 
+/*
+ * @brief 生成流光灯效。
+ */
 void light_chase(void) {
     if(!s_chase_init) {
         static color_t colors[] = {
@@ -540,21 +629,48 @@ void light_chase(void) {
 
 }
 
+/*
+ * @brief 环绕扫描灯效配置对象。
+ */
+round_cfg_t s_round_cfg;
 
+/*
+ * @brief 获取环绕扫描灯效配置。
+ */
+round_cfg_t* light_get_round_cfg(void) {
+    return &s_round_cfg;
+}
 
+bool s_round_init;
+
+/*
+ * @brief 生成环绕扫描灯效。
+ */
 void light_round(void) {
-    const color_t color_main = {255,52,241};
-    const color_t color_sub = {12,13,255};
+    if(!s_round_init) {
+        color_t color_main = {255,52,241};
+        color_t color_sub = {12,13,255};
 
-    const uint32_t PERIOD_MS = 10;
-    const uint32_t update_steps = 10;
+        s_round_cfg.color_main = color_main;
+        s_round_cfg.color_sub =  color_sub;
+        s_round_cfg.range = 5;
+        s_round_cfg.range_main = 1;
+        s_round_cfg.center_speed = 1;
+        s_round_cfg.wait_ms = 2000;
+        s_round_init = true;
+    }
+
+    const float range = s_round_cfg.range;
+    const float range_main = s_round_cfg.range_main;
+    const color_t color_main = s_round_cfg.color_main;
+    const color_t color_sub = s_round_cfg.color_sub;
+    const float center_speed = s_round_cfg.center_speed;
+    const int32_t wait_ms = s_round_cfg.wait_ms;
 
 
     color_t colors_update[LIGHT_PIXEL_COUNT];
-    static float center_speed = 3;
 
-    static float range = 5;
-    static float range_main = 1;
+
     static float pos_idx = -3.0f;
 
     for (int i = 0; i < LIGHT_PIXEL_COUNT; i++) {
@@ -579,20 +695,45 @@ void light_round(void) {
         }
     }
 
-    pos_idx += center_speed * ((float)PERIOD_MS / 1000.0f);
+    pos_idx += center_speed * ((float)s_light.period / 1000.0f);
 
-    if (pos_idx >= (float)LIGHT_PIXEL_COUNT + 6.0f) {
-        pos_idx = -6.0f;
+    if (pos_idx >= (float)LIGHT_PIXEL_COUNT + range + center_speed * wait_ms / 1000) {
+        pos_idx = -s_round_cfg.range;
     }
 
     light_fill_advance(colors_update);
 }
 
-void light_static(void) {
-    color_t color = {255,255,0};
-    light_fill(color.r, color.g, color.b);
+/*
+ * @brief 默认静态灯效配置对象。
+ */
+color_t s_static_cfg;
+
+/*
+ * @brief 获取默认静态灯效配置。
+ */
+color_t* light_get_static_cfg(void) {
+    return &s_static_cfg;
 }
 
+bool s_static_init;
+
+/*
+ * @brief 生成默认静态灯效。
+ */
+void light_static(void) {
+    if(!s_static_init) {
+        s_static_cfg.r = 255;
+        s_static_cfg.g = 255;
+        s_static_cfg.b = 0;
+        s_static_init = true;
+    }
+    light_fill(s_static_cfg.r, s_static_cfg.g, s_static_cfg.b);
+}
+
+/*
+ * @brief 灯效测试任务。
+ */
 void light_test_task(void* arg) {
     color_t color = {255,255,0};
     while(1) {
@@ -602,6 +743,9 @@ void light_test_task(void* arg) {
     }
 }
 
+/*
+ * @brief 灯效主任务，根据当前模式刷新灯珠。
+ */
 void light_task(void* arg) {
     if(!s_inited) {
         light_init();
@@ -647,6 +791,9 @@ void light_task(void* arg) {
     }
 }
 
+/*
+ * @brief 设置当前灯效模式。
+ */
 void light_set_mode(light_mode_t mode) {
     s_light.mode = mode;
 }

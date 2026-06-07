@@ -9,9 +9,11 @@ idf_component_register(
         "Tasks/event_handler.c"
         "oled/oled_menu.c"
         "ModuleDriver/system_monitor.c"
-        "test.c"
         "ModuleDriver/oled_plot.c"
         "ModuleDriver/light.c"
+        "ModuleDriver/blue_tooth.c"
+        "ModuleDriver/ble_protocol.c"
+        "oled/oled_adjuster.c"
     INCLUDE_DIRS
         "."
         ".Include"
