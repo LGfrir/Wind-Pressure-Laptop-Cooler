@@ -6,10 +6,9 @@
 #define I2C_SCL_IO SCL_PIN
 #define I2C_PORT I2C_NUM_0
 i2c_master_bus_handle_t i2c_bus_handle = NULL;
-void i2c_bus_init(void)
-{
-    if (i2c_bus_handle != NULL)
-    {
+
+void i2c_bus_init(void) {
+    if (i2c_bus_handle != NULL) {
         return;
     }
     i2c_master_bus_config_t bus_config = {

@@ -1,0 +1,20 @@
+## main 组件的依赖清单。
+##
+## 说明：ESP-IDF 会优先使用 <component>/idf_component.yml 作为该组件的依赖清单；
+## 只有当该文件不存在时，才会回退去读组件目录下的 idf_component.yml。
+## 本项目的 main/idf_component.yml 写的是 `idf: >=4.1.0`，与实际使用的 IDF 6.0.1
+## 不符，因此这里放一份更准确的清单。
+##
+## 注意：根目录 CMakeLists.txt 中有一行 `include($ENV{IDF_PATH}/tools/cmake/project.cmake)`
+## 的路径分隔符写法不规范，建议改为：
+##     include(${IDF_PATH}/tools/cmake/project.cmake)
+## 在 Windows 上，写成 `$ENV{IDF_PATH}/...` 会被 CMake 按“字面文件名”处理，
+## 结果是一段名为 `cmake/project.cmake` 的空白路径，外部组件会因此找不到 project.cmake，
+## 报错 “Failed to resolve component”。若遇到该报错，请先修这一行。
+##
+## 组件管理器会自行创建 managed_components/ 与 dependencies.lock，并在 .gitignore 中
+## 自动排除，无需手动维护。
+dependencies:
+  idf:
+    version: '>=5.0'
+  espressif/led_strip: '*'

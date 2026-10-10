@@ -37,6 +37,7 @@ void light_init();
 void light_test_task(void* arg);
 
 // 总light 控制
+light_t* light_sync(light_t* para);
 light_t* light_get_cfg(void);
 
 #endif

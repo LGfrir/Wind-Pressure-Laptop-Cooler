@@ -1,63 +1,77 @@
 /**
  * @file oled_menu.h
- *
- * Direct OLED render API. The OLED no longer owns a local menu tree; the PC
- * selects a render mode over BLE and feeds the data used by that mode.
+ * @author LG_frir
+ * @date 2026-04-20 20:07:57
  */
 
 #ifndef __OLED_MENU_H__
 #define __OLED_MENU_H__
 
-#include <stdint.h>
+#include ".Include/oled_include.h"
 
-typedef enum {
-    OLED_RENDER_SUMMARY = 0,
-    OLED_RENDER_FAN,
-    OLED_RENDER_PC_CPU,
-    OLED_RENDER_PC_GPU,
-    OLED_RENDER_PC_RAM,
-    OLED_RENDER_PC_NET,
-    OLED_RENDER_ESP_SYSTEM,
-    OLED_RENDER_ESP_TASKS,
-    OLED_RENDER_LIGHT,
-    OLED_RENDER_COUNT
-} oled_render_mode_t;
+// 第一级
+extern const oled_item_t menu;
 
-typedef struct {
-    uint8_t cpu_usage;
-    uint8_t cpu_power_w;
-    uint8_t gpu_usage;
-    uint8_t gpu_power_w;
-    uint8_t ram_usage;
-    uint16_t ram_used_mb;
-    uint16_t ram_total_mb;
-    uint16_t net_rx_kbps;
-    uint16_t net_tx_kbps;
-} oled_pc_status_t;
+// 第二级
+extern const oled_item_t fan_info;
+extern const oled_item_t encoder_info;
+extern const oled_item_t system_info;
+extern const oled_item_t computer_info;
+extern const oled_item_t settings;
+extern const oled_item_t quick_settings;
 
-void oled_set_render_mode(oled_render_mode_t mode);
-oled_render_mode_t oled_get_render_mode(void);
-void oled_render_current(void);
+// 第三级
+// fan_info
+extern const oled_item_t fan_speed;
+extern const oled_item_t fan_mode;
+extern const oled_item_t fan_speed_curve;
 
-void oled_set_pc_status(const oled_pc_status_t* status);
-void oled_menu_set_pc_status(uint8_t cpu_usage,
-                             uint8_t cpu_power_w,
-                             uint8_t gpu_usage,
-                             uint8_t gpu_power_w,
-                             uint8_t ram_usage,
-                             uint16_t ram_used_mb,
-                             uint16_t ram_total_mb,
-                             uint16_t net_rx_kbps,
-                             uint16_t net_tx_kbps);
+// system_info
+extern const oled_item_t esp32s3_cpu;
+extern const oled_item_t esp32s3_heap;
+extern const oled_item_t esp32s3_runtime;
+extern const oled_item_t esp32s3_task;
 
-void oled_render_summary(void);
-void oled_render_fan(void);
-void oled_render_pc_cpu(void);
-void oled_render_pc_gpu(void);
-void oled_render_pc_ram(void);
-void oled_render_pc_net(void);
-void oled_render_esp_system(void);
-void oled_render_esp_tasks(void);
-void oled_render_light(void);
+
+// computer_info
+extern const oled_item_t computer_cpu;
+extern const oled_item_t computer_gpu;
+extern const oled_item_t computer_ram;
+extern const oled_item_t computer_network;
+
+// settings
+extern const oled_item_t fan_settings;
+extern const oled_item_t pwm_settings;
+extern const oled_item_t button_settings;
+extern const oled_item_t encoder_settings;
+extern const oled_item_t light_mode_settings;
+extern const oled_item_t light_settings;
+
+// 第四级
+// fan_settings
+extern const oled_item_t fan_speed_curve_settings;
+extern const oled_item_t fan_mode_settings;
+
+// button_settings
+extern const oled_item_t button_longpress;
+extern const oled_item_t button_shortpress;
+
+// light mode
+extern const oled_item_t light_brightness_settings;
+extern const oled_item_t light_mode_settings;
+extern const oled_item_t light_period_settings;
+
+// 第五级
+
+extern const oled_item_t light_mode_off; 
+extern const oled_item_t light_mode_static; 
+extern const oled_item_t light_mode_breath; 
+extern const oled_item_t light_mode_blink; 
+extern const oled_item_t light_mode_chase; 
+extern const oled_item_t light_mode_rainbow; 
+extern const oled_item_t light_mode_round; 
+extern const oled_item_t light_mode_custom_breath; 
+extern const oled_item_t light_mode_random_flash; 
+
 
 #endif /* __OLED_MENU_H__ */

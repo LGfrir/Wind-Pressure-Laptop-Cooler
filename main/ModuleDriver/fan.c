@@ -28,7 +28,6 @@ fan_t fan = {
     .mode = MANUAL,
 };
 static volatile uint32_t s_tach_pulse_count = 0;
-static uint32_t s_fan_rpm = 0;
 static portMUX_TYPE s_tach_mux = portMUX_INITIALIZER_UNLOCKED;
 
 static volatile uint64_t s_last_tach_us = 0;
@@ -45,7 +44,7 @@ static void IRAM_ATTR fan_tach_isr_handler(void* arg) {
 }
 
 
-uint32_t fan_get_rpm(void) { return s_fan_rpm; }
+uint32_t fan_get_rpm(void) { return fan.rpm; }
 
 void fan_send_pwm(uint8_t percentage) {
     // Implementation for sending PWM signal to control fan speed
@@ -60,13 +59,6 @@ void fan_task(void* arg) {
     int64_t last_sample_us = esp_timer_get_time();
 
     while (1) {
-        if (fan.is_on) {
-            fan_set_speed(fan.speed_percentage);
-        }
-        else {
-            fan_set_speed(0);
-        }
-        fan_send_pwm(fan.speed_percentage);
         vTaskDelay(pdMS_TO_TICKS(1000));
 
         // 读取并清零脉冲计数
@@ -82,16 +74,36 @@ void fan_task(void* arg) {
         last_sample_us = now_us;
 
         if (actual_us > 0) {
-            s_fan_rpm = (uint32_t)(((uint64_t)delta_pulse * 60ULL * 1000000ULL) / (2ULL * (uint64_t)actual_us));
+            fan.rpm = (uint32_t)(((uint64_t)delta_pulse * 60ULL * 1000000ULL) / (2ULL * (uint64_t)actual_us));
         }
         else {
-            s_fan_rpm = 0;
+            fan.rpm = 0;
         }
 
         // ESP_LOGI("FAN", "tach pulse: %lu, rpm: %lu", delta_pulse, s_fan_rpm);
     }
 }
 
+double kp = 1;
+double ki = 1;
+double kd = 1;
+
+void fan_speed_syncing_task() {
+    while(1) {
+        if(fan.is_on) {
+            if(fan.mode == MANUAL) {
+                fan_send_pwm(fan.speed_percentage);
+            }
+            else if(fan.mode == AUTO) {
+                double e = fan.rpm - fan.target_rpm;
+
+            } else if(fan.mode == FULL_SPEED) {
+                fan_send_pwm(100);
+            }
+        }
+        else fan_send_pwm(0);
+    }
+}
 
 void fan_init(void) {
     ledc_timer_config_t timer_cfg = { .speed_mode = LEDC_LOW_SPEED_MODE,
@@ -126,7 +138,6 @@ void fan_init(void) {
 
 
 void fan_set_speed(uint8_t speed) {
-    // Implementation for setting fan speed
     if (speed > 100)
         speed = 100;
     if (speed <= 0)
@@ -136,6 +147,9 @@ void fan_set_speed(uint8_t speed) {
     fan_send_pwm(speed);
 }
 
+void fan_set_target_rpm(uint32_t target_rpm) {
+    fan.target_rpm = target_rpm;
+}
 
 fan_mode_t fan_get_mode(void) { return fan.mode; }
 

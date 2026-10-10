@@ -3,3 +3,6 @@ build_codex_ps/
 backups/
 sdkconfig
 sdkconfig.old
+*.bak
+*.bak_*
+*.rar

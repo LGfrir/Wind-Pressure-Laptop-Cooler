@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 $IdfPath = "E:\ESP-IDF\esp-idf-v6.0.1"
-$ProjectPath = "G:\ESP32\SmartFan"
+$ProjectPath = "G:\ESP32\LaptopCooler"
 $ExportScript = Join-Path $IdfPath "export.ps1"
 
 if (-not (Test-Path -LiteralPath $ExportScript)) {

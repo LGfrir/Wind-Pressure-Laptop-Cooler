@@ -13,7 +13,7 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_timer.h"
-#include "stdint.h"
+
 
 #include ".Include/event_handler.h"
 #include ".Include/oled.h"

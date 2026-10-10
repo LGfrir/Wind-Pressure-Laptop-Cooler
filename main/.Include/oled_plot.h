@@ -85,7 +85,7 @@ typedef struct {
  * @param x            绘图区域左上角横坐标。
  * @param y            绘图区域左上角纵坐标。
  * @param w            绘图区域宽度（像素）。
- * @param h            绘图区域高度（像素）。
+ * @param h            绘d图区域高度（像素）。
  * @param auto_scale   是否启用自动缩放。
  * @param mode         数据更新模式（滚动或扫描）。
  * @param draw_border  是否绘制边框。

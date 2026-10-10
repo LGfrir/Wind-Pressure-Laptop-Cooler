@@ -270,6 +270,10 @@ void light_show(void)
     if (!s_inited) {
         return;
     }
+    for (int i = 0; i < LIGHT_PIXEL_COUNT; i++) {
+        // printf("%d %d %d\n", s_pixels[i][1], s_pixels[i][0], s_pixels[i][2]);
+    }
+
     portENTER_CRITICAL(&s_light_mux);
 
     for (int i = 0; i < LIGHT_PIXEL_COUNT; i++) {
@@ -398,6 +402,7 @@ void light_breathe(void) {
         next = (next + 1) % color_count;
     }
 
+    printf("wtf\n");
 }
 
 /*

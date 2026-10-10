@@ -1,153 +1,260 @@
 # SmartFan
 
-SmartFan is an ESP-IDF based ESP32-S3 fan controller. The firmware currently
-uses BLE as the PC communication channel and keeps the OLED as a compact status
-display instead of a local menu editor.
+SmartFan is an ESP-IDF based smart fan controller for ESP32-S3. It integrates PWM fan speed control, tachometer RPM feedback, rotary encoder input, OLED menu interaction, ARGB lighting effects, system monitoring, and UART-based debugging.
 
-## Current Target
+## Features
 
-- MCU: ESP32-S3
-- ESP-IDF: 6.0.1
-- BLE stack: NimBLE
-- OLED role: small-font English status renderer
-- PC role: selects OLED mode and streams mode-specific data over BLE
+- **PWM fan control**
+  - 25 kHz PWM output through ESP-IDF LEDC
+  - 0-100% speed control
+  - Manual, auto, and full-speed mode definitions
 
-## Build
+- **Fan RPM feedback**
+  - Tachometer pulse counting through GPIO interrupt
+  - RPM calculation based on two pulses per revolution
+  - Real-time RPM display support in OLED menu
 
-Load the ESP-IDF environment, then build:
+- **Rotary encoder input**
+  - Quadrature A/B phase decoding by GPIO interrupt
+  - Incremental and absolute count tracking
+  - Short press and long press detection with debounce
 
-```powershell
-idfenv
-idf.py build
+- **OLED menu system**
+  - Tree-structured menu pages
+  - Encoder-based navigation
+  - Scrollable menu list
+  - Detail pages for fan, encoder, system, and light information
+
+- **ARGB lighting**
+  - 8-pixel WS2812/SK6812-style ARGB output
+  - Static, rainbow, breath, blink, chase, round, random flash, and custom breath modes
+  - Runtime mode switching
+
+- **System monitoring**
+  - Runtime statistics
+  - Heap and internal memory information
+  - FreeRTOS task list and CPU usage statistics
+
+- **UART debug control**
+  - Serial command mapping for encoder movement, button events, and light mode switching
+  - Optional Python/Tkinter GUI debugger
+
+## Hardware Target
+
+- MCU: **ESP32-S3**
+- Framework: **ESP-IDF**
+- Display: I2C OLED, SSD1306-style driver
+- Input: Rotary encoder with push button
+- Fan: PWM-controlled 4-wire fan with tachometer feedback
+- Lighting: 8 ARGB LEDs, WS2812/SK6812-style one-wire protocol
+
+## Pin Mapping
+
+| Function | GPIO |
+| --- | --- |
+| Encoder A | GPIO0 |
+| Encoder B | GPIO1 |
+| Encoder Button | GPIO2 |
+| Fan Tachometer | GPIO3 |
+| ARGB Data | GPIO4 |
+| OLED Button 1 / Reserved | GPIO5 |
+| Fan PWM | GPIO6 |
+| I2C SDA | GPIO7 |
+| I2C SCL | GPIO9 |
+
+Pin definitions are located in:
+
+```text
+main/.Include/gpio.h
 ```
 
-Flash with your actual serial port:
+## Project Structure
 
-```powershell
+```text
+SmartFan/
++-- CMakeLists.txt
++-- dependencies.lock
++-- sdkconfig.defaults
++-- board_test.py
++-- main/
+|   +-- main.c
+|   +-- CMakeLists.txt
+|   +-- Basic/
+|   |   +-- i2c_bus.c
+|   +-- ModuleDriver/
+|   |   +-- encoder.c
+|   |   +-- fan.c
+|   |   +-- light.c
+|   |   +-- oled.c
+|   |   +-- oled_plot.c
+|   |   +-- system_monitor.c
+|   +-- Tasks/
+|   |   +-- event_handler.c
+|   |   +-- oled_display_task.c
+|   +-- oled/
+|   |   +-- oled_adjuster.c
+|   |   +-- oled_menu.c
+|   +-- .Include/
+|       +-- project headers
++-- managed_components/
+    +-- espressif__led_strip/
+```
+
+## Main Modules
+
+### Fan Driver
+
+The fan driver configures LEDC PWM output and tachometer pulse measurement.
+
+- Source: `main/ModuleDriver/fan.c`
+- Header: `main/.Include/fan.h`
+- PWM frequency: `25000 Hz`
+- PWM resolution: `10-bit`
+- Tachometer interrupt: negative edge
+
+### Encoder Driver
+
+The encoder driver uses GPIO interrupts on both A/B phases and a transition table to decode direction.
+
+- Source: `main/ModuleDriver/encoder.c`
+- Header: `main/.Include/encoder.h`
+- Button handling: `main/Tasks/event_handler.c`
+
+### OLED UI
+
+The OLED UI is implemented as a tree of `oled_item_t` menu nodes.
+
+- Display task: `main/Tasks/oled_display_task.c`
+- Menu definitions: `main/oled/oled_menu.c`
+- OLED driver: `main/ModuleDriver/oled.c`
+
+Basic navigation:
+
+| Input | Behavior |
+| --- | --- |
+| Rotate encoder | Move cursor / adjust value |
+| Short press | Enter item / confirm operation |
+| Long press | Back / secondary operation |
+
+### ARGB Light Driver
+
+The light driver implements WS2812/SK6812-style timing by direct GPIO bit-banging.
+
+- Source: `main/ModuleDriver/light.c`
+- Header: `main/.Include/light.h`
+- Pixel count: `8`
+
+Supported modes:
+
+- Off
+- Static
+- Rainbow
+- Breath
+- Random flash
+- Blink
+- Custom breath
+- Chase
+- Round
+
+### System Monitor
+
+The system monitor provides runtime and FreeRTOS task statistics.
+
+- Source: `main/ModuleDriver/system_monitor.c`
+- Header: `main/.Include/system_monitor.h`
+
+The following options are enabled in `sdkconfig.defaults`:
+
+```text
+CONFIG_FREERTOS_USE_TRACE_FACILITY=y
+CONFIG_FREERTOS_USE_STATS_FORMATTING_FUNCTIONS=y
+```
+
+## Build Requirements
+
+- ESP-IDF with ESP32-S3 support
+- Python environment required by ESP-IDF
+- USB serial connection to the target board
+
+This project was generated and tested around the ESP-IDF project layout. The dependency lock currently targets:
+
+```text
+target: esp32s3
+idf: 6.0.0
+```
+
+## Build and Flash
+
+Open an ESP-IDF terminal, then run:
+
+```bash
+idf.py set-target esp32s3
+idf.py build
+idf.py flash monitor
+```
+
+If your serial port is not detected automatically, specify it explicitly:
+
+```bash
 idf.py -p COMx flash monitor
 ```
 
-Two helper scripts are included:
+Replace `COMx` with your actual serial port, for example `COM3` on Windows.
 
-```powershell
-idfenv
-rmbd
+## UART Debug Commands
+
+The firmware includes a UART debug task on `UART0` at `115200 baud`.
+
+| Command | Action |
+| --- | --- |
+| `1` | Encoder count -1 |
+| `2` | Encoder count +1 |
+| `3` | Simulate long press |
+| `4` | Simulate short press |
+| `5` | Switch light mode |
+
+There is also a simple Python/Tkinter serial debugger:
+
+```bash
+python board_test.py
 ```
 
-- `idfenv` loads `E:\ESP-IDF\esp-idf-v6.0.1\export.ps1` and switches back to
-  this project.
-- `rmbd` removes the local `build` directory.
+Install `pyserial` first if needed:
 
-## BLE Layout
-
-Device name:
-
-```text
-SmartFan-S3
+```bash
+pip install pyserial
 ```
 
-Service UUID:
+## Current Status
 
-```text
-a1f00000-2c3d-4e5f-8a9b-001122334455
-```
+Implemented:
 
-PC -> ESP characteristic, `Write` / `Write Without Response`:
+- Fan PWM output
+- Fan RPM measurement
+- Rotary encoder decoding
+- Encoder button short/long press detection
+- OLED menu framework
+- Fan, encoder, system, and light menu pages
+- ARGB light effects
+- FreeRTOS/system statistics display
+- UART debug control
 
-```text
-a1f00001-2c3d-4e5f-8a9b-001122334455
-```
+Partially implemented or planned:
 
-ESP -> PC characteristic, `Read` / `Notify`:
+- Computer CPU/GPU/RAM/network information pages
+- Quick settings page
+- PWM settings page
+- Encoder settings page
+- Button behavior configuration
+- Bluetooth communication module
+- Persistent configuration storage
 
-```text
-a1f00002-2c3d-4e5f-8a9b-001122334455
-```
+## Notes
 
-## PC Write Protocol
+- The ARGB driver uses software bit-banging instead of the ESP-IDF RMT LED strip driver. This keeps the implementation direct, but timing can be more sensitive to CPU frequency, compiler optimization, and interrupt latency.
+- The fan tachometer RPM calculation assumes two tach pulses per revolution. Adjust the formula if your fan uses a different pulse count.
+- Some menu pages are intentionally reserved as TODO items for future extension.
 
-The BLE transport code lives in:
+## License
 
-```text
-main/ModuleDriver/blue_tooth.c
-```
-
-The packet parser and packet builder live in:
-
-```text
-main/ModuleDriver/ble_protocol.c
-main/.Include/ble_protocol.h
-```
-
-### Set OLED Mode
-
-```text
-byte 0  command = 0x01
-byte 1  oled_render_mode_t
-```
-
-### PC Status Frame
-
-```text
-byte 0      command = 0x02
-byte 1      oled_render_mode_t
-byte 2      cpu_usage
-byte 3      cpu_power_w
-byte 4      gpu_usage
-byte 5      gpu_power_w
-byte 6      ram_usage
-byte 7-8    ram_used_mb, little-endian
-byte 9-10   ram_total_mb, little-endian
-byte 11-12  net_rx_kbps, little-endian
-byte 13-14  net_tx_kbps, little-endian
-```
-
-The old 13-byte PC status payload is still accepted for quick compatibility
-testing; it updates PC status without changing the current OLED mode.
-
-## ESP Notify Protocol
-
-The ESP status notify/read payload is:
-
-```text
-byte 0      oled_render_mode_t
-byte 1      fan_speed_percent
-byte 2      fan_mode, 0=manual, 1=auto, 2=full
-byte 3      fan_is_on
-byte 4-7    fan_rpm, little-endian uint32
-```
-
-When the PC subscribes to the ESP status characteristic, the firmware sends this
-packet every 500 ms.
-
-## OLED Rendering
-
-`main/oled/oled_menu.c` no longer contains a menu tree. It exposes direct render
-entry points:
-
-```c
-void oled_set_render_mode(oled_render_mode_t mode);
-void oled_render_current(void);
-void oled_render_summary(void);
-void oled_render_fan(void);
-void oled_render_pc_cpu(void);
-void oled_render_pc_gpu(void);
-void oled_render_pc_ram(void);
-void oled_render_pc_net(void);
-void oled_render_esp_system(void);
-void oled_render_esp_tasks(void);
-void oled_render_light(void);
-```
-
-The OLED task only calls `oled_render_current()` periodically. Mode selection is
-owned by the PC/BLE protocol.
-
-## Backup
-
-Before the OLED/BLE refactor, a local backup was created at:
-
-```text
-G:\ESP32\SmartFan\backups\SmartFan_oled_ble_refactor_20260607_230712
-```
-
-Backups are intentionally ignored by git.
+No license has been specified yet. Add a license before publishing if you want others to reuse, modify, or distribute this project.
