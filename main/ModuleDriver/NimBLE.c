@@ -13,12 +13,39 @@
 static uint8_t own_addr_type;
 static const char *TAG = "NIMBLE";
 
-/* 与 ESP-IDF 官方 bleprph 示例一致:该函数由 host/store/config 组件提供,
- * 但 NimBLE 并未在头文件中导出声明,需在此自行前置声明。 */
 void ble_store_config_init(void);
 
+/* 前置声明:bleprph_advertise 定义在本文件后面,但 bleprph_gap_event 要调用它 */
+static void bleprph_advertise(void);
+
 static int bleprph_gap_event(struct ble_gap_event *event, void *arg) {
-    
+    switch(event->type) {
+        case BLE_GAP_EVENT_CONNECT: {
+            MODLOG_DFLT(INFO, "connection %s; status=%d ",
+                        event->connect.status == 0 ? "established" : "failed",
+                        event->connect.status);
+            MODLOG_DFLT(INFO, "\n");
+
+            if (event->connect.status != 0) {
+                bleprph_advertise();
+            }
+            return 0;
+        }   
+        case BLE_GAP_EVENT_DISCONNECT: {
+            MODLOG_DFLT(INFO, "disconnect; reason=%d ", event->disconnect.reason);
+            MODLOG_DFLT(INFO, "\n");
+
+            bleprph_advertise();
+            return 0;
+        }
+        case BLE_GAP_EVENT_ADV_COMPLETE: {
+            ESP_LOGI(TAG, "advertise complete; reason=%d", event->adv_complete.reason);
+            bleprph_advertise();
+            return 0;
+        }
+        default: 
+            return 0;
+    }
 
     return 0;
 }

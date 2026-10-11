@@ -118,7 +118,7 @@ void oled_display(void* arg) {
         }
 
         if (current_display_page->son_size != 0) {
-            printf("%ld \n", encoder_get_count());
+            // printf("%ld \n", encoder_get_count());
             oled_display_page(current_display_page);
         }
         else {
