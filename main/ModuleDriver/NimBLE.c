@@ -50,6 +50,7 @@ static int bleprph_gap_event(struct ble_gap_event *event, void *arg) {
     return 0;
 }
 
+
 static void bleprph_advertise(void) {
     struct ble_hs_adv_fields fields;
     memset(&fields, 0, sizeof fields);
@@ -58,17 +59,29 @@ static void bleprph_advertise(void) {
     fields.tx_pwr_lvl_is_present = 1;
     fields.tx_pwr_lvl = BLE_HS_ADV_TX_PWR_LVL_AUTO;
 
-    const char* dev_name = ble_svc_gap_device_name();
-    fields.name = (const uint8_t *)dev_name;
-    fields.name_len = strlen(dev_name);
-    fields.name_is_complete = 1;
+    fields.uuids128            = &FAN_SVC_UUID;
+    fields.num_uuids128        = 1;
+    fields.uuids128_is_complete = 1;
 
     int rc = ble_gap_adv_set_fields(&fields); 
     if(rc != 0) {
-        ESP_LOGE(TAG, "ble_gap_adv_set_fields failed");
+        ESP_LOGE(TAG, "ble_gap_adv_set_fields failed 1");
         return;
     }
+    struct ble_hs_adv_fields rsp_fields;
+    memset(&rsp_fields, 0, sizeof rsp_fields);
 
+    const char* dev_name = ble_svc_gap_device_name();
+    rsp_fields.name = (const uint8_t *)dev_name;
+    rsp_fields.name_len = strlen(dev_name);
+    rsp_fields.name_is_complete = 1;
+
+    rc = ble_gap_adv_rsp_set_fields(&rsp_fields);
+    if(rc != 0) {
+        ESP_LOGE(TAG, "ble_gap_adv_set_fields failed 2");
+        return;
+    }
+    
     struct ble_gap_adv_params adv_params;
     memset(&adv_params, 0, sizeof adv_params);
     adv_params.conn_mode = BLE_GAP_CONN_MODE_UND;
@@ -180,7 +193,8 @@ void nimble_init_as_prph() {
     int rc = gatt_svt_init();
     assert(rc == 0);
     // 设备名注册
-    rc = ble_svc_gap_device_name_set("yhrdsb");
+
+    rc = ble_svc_gap_device_name_set(DEVICE_NAME);
     assert(rc == 0);
 
     //不懂

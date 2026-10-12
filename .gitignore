@@ -1,8 +1,19 @@
+# ---- ESP-IDF ----
 build/
 build_codex_ps/
-backups/
 sdkconfig
 sdkconfig.old
+
+# IDF 组件管理器下载的依赖。由 dependencies.lock + main/idf_component.yml 恢复，
+# 官方约定不入库（docs/api-guides/build-system.rst: "通常不在 Git 中进行版本控制"）
+managed_components/
+
+# ---- 备份 / 临时 ----
+backups/
 *.bak
 *.bak_*
 *.rar
+
+# ---- .NET (pc_client) ----
+obj/
+bin/

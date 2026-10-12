@@ -18,6 +18,9 @@
 #include "services/gatt/ble_svc_gatt.h"
 #include "store/config/ble_store_config.h"
 
+#define DEVICE_NAME "连上尹浩荣jj断两根"
+
 void nimble_init_as_prph(void);
+
 
 #endif /* __NIMBLE_H__ */
