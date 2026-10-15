@@ -1,6 +1,6 @@
-#include ".Include/oled.h"
-#include ".Include/i2c_bus.h"
-#include ".Include/oled_font.h"
+#include "ModuleDriver/oled.h"
+#include "Basic/i2c_bus.h"
+#include "oled/Resources/oled_font.h"
 
 #include <stdarg.h>
 #include <stdio.h>

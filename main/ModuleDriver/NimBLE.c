@@ -4,8 +4,8 @@
  * @date 2026-10-09 10:25:39
  */
 
-#include "NimBLE.h"
-#include "gatt_svc.h"
+#include "ModuleDriver/NimBLE.h"
+#include "Tasks/gatt_svc.h"
 #include "esp_err.h"
 #include <assert.h>
 

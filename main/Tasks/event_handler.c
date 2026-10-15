@@ -4,9 +4,9 @@
  * @date 2026-04-16 23:30:27
  */
 
-#include ".Include/event_handler.h"
-#include ".Include/encoder.h"
-#include ".Include/fan.h"
+#include "Tasks/event_handler.h"
+#include "ModuleDriver/encoder.h"
+#include "ModuleDriver/fan.h"
 
 #include "esp_err.h"
 #include "esp_log.h"
@@ -14,7 +14,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
-#include "NimBLE.h"
+#include "ModuleDriver/NimBLE.h"
 
 static encoder_data_t s_encoder_data;
 static uint32_t s_rpm;
@@ -104,15 +104,6 @@ void set_encoder_data(int32_t total) {
 encoder_data_t get_encoder_data(void) { return s_encoder_data; }
 
 
-void rpm_handler_task(void* arg) {
-    ESP_LOGI("RPM_HANDLER_TASK", "Handling RPM data...");
-    while (1) {
-        s_rpm = fan_get_rpm();
-        nimble_notify_rpm();
-        vTaskDelay(pdMS_TO_TICKS(1000)); // 模拟处理时间，每秒处理一次
-    }
-}
-
 
 void data_handler_init(void) {
     ESP_LOGI("DATA_HANDLER_INIT", "Creating Tasks...");
@@ -121,7 +112,6 @@ void data_handler_init(void) {
     xTaskCreate(encoder_data_handler_task, "encoder_data_handler", 4096, NULL, 1, NULL);
 
     ESP_LOGI("DATA_HANDLER_INIT", "Creating RPM handler task...");
-    xTaskCreate(rpm_handler_task, "rpm_handler", 4096, NULL, 1, NULL);
 }
 
 

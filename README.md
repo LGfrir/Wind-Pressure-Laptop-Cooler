@@ -65,7 +65,7 @@ SmartFan is an ESP-IDF based smart fan controller for ESP32-S3. It integrates PW
 Pin definitions are located in:
 
 ```text
-main/.Include/gpio.h
+main/.Include/Basic/gpio.h
 ```
 
 ## Project Structure
@@ -81,24 +81,56 @@ SmartFan/
 |   +-- CMakeLists.txt
 |   +-- Basic/
 |   |   +-- i2c_bus.c
+|   |   +-- ws2812.c
 |   +-- ModuleDriver/
 |   |   +-- encoder.c
 |   |   +-- fan.c
-|   |   +-- light.c
+|   |   +-- light_mode.c
 |   |   +-- oled.c
 |   |   +-- oled_plot.c
 |   |   +-- system_monitor.c
 |   +-- Tasks/
 |   |   +-- event_handler.c
+|   |   +-- light_task.c
 |   |   +-- oled_display_task.c
 |   +-- oled/
 |   |   +-- oled_adjuster.c
 |   |   +-- oled_menu.c
 |   +-- .Include/
-|       +-- project headers
+|       +-- main.h
+|       +-- test.h
+|       +-- Basic/
+|       |   +-- gpio.h
+|       |   +-- i2c_bus.h
+|       |   +-- ws2812.h
+|       +-- ModuleDriver/
+|       |   +-- encoder.h
+|       |   +-- fan.h
+|       |   +-- light_cfg.h
+|       |   +-- light_mode.h
+|       |   +-- NimBLE.h
+|       |   +-- oled.h
+|       |   +-- oled_plot.h
+|       |   +-- system_monitor.h
+|       +-- Tasks/
+|       |   +-- encoder_task.h
+|       |   +-- event_handler.h
+|       |   +-- gatt_svc.h
+|       |   +-- light_task.h
+|       |   +-- oled_display_task.h
+|       +-- oled/
+|           +-- oled_adjuster.h
+|           +-- oled_include.h
+|           +-- oled_menu.h
+|           +-- Resources/
+|               +-- oled_font.h
+|               +-- oled_image.h
 +-- managed_components/
     +-- espressif__led_strip/
 ```
+
+Headers mirror the source modules and use `Basic/...`, `ModuleDriver/...`, `Tasks/...`, and `oled/...` include paths. Header-only GPIO definitions belong to `Basic`, effect configuration to `ModuleDriver`, and OLED fonts and images to `oled/Resources`. The reserved encoder task declaration belongs to `Tasks`.
+
 
 ## Main Modules
 
@@ -107,7 +139,7 @@ SmartFan/
 The fan driver configures LEDC PWM output and tachometer pulse measurement.
 
 - Source: `main/ModuleDriver/fan.c`
-- Header: `main/.Include/fan.h`
+- Header: `main/.Include/ModuleDriver/fan.h`
 - PWM frequency: `25000 Hz`
 - PWM resolution: `10-bit`
 - Tachometer interrupt: negative edge
@@ -117,7 +149,7 @@ The fan driver configures LEDC PWM output and tachometer pulse measurement.
 The encoder driver uses GPIO interrupts on both A/B phases and a transition table to decode direction.
 
 - Source: `main/ModuleDriver/encoder.c`
-- Header: `main/.Include/encoder.h`
+- Header: `main/.Include/ModuleDriver/encoder.h`
 - Button handling: `main/Tasks/event_handler.c`
 
 ### OLED UI
@@ -140,8 +172,10 @@ Basic navigation:
 
 The light driver implements WS2812/SK6812-style timing by direct GPIO bit-banging.
 
-- Source: `main/ModuleDriver/light.c`
-- Header: `main/.Include/light.h`
+- LED driver: `main/Basic/ws2812.c`, `main/.Include/Basic/ws2812.h`
+- Effect modes: `main/ModuleDriver/light_mode.c`, `main/.Include/ModuleDriver/light_mode.h`
+- Execution task: `main/Tasks/light_task.c`, `main/.Include/Tasks/light_task.h`
+- Mode configuration: `main/.Include/ModuleDriver/light_cfg.h`
 - Pixel count: `8`
 
 Supported modes:
@@ -161,7 +195,7 @@ Supported modes:
 The system monitor provides runtime and FreeRTOS task statistics.
 
 - Source: `main/ModuleDriver/system_monitor.c`
-- Header: `main/.Include/system_monitor.h`
+- Header: `main/.Include/ModuleDriver/system_monitor.h`
 
 The following options are enabled in `sdkconfig.defaults`:
 

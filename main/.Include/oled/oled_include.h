@@ -7,18 +7,18 @@
 #ifndef __OLED_INCLUDE_H__
 #define __OLED_INCLUDE_H__
 
-#include "FreeRTOS/FreeRTOS.h"
-#include "FreeRTOS/semphr.h"
-#include "FreeRTOS/task.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+#include "freertos/task.h"
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 
 
-#include ".Include/event_handler.h"
-#include ".Include/oled.h"
-#include ".Include/fan.h"
-#include "system_monitor.h"
+#include "Tasks/event_handler.h"
+#include "ModuleDriver/oled.h"
+#include "ModuleDriver/fan.h"
+#include "ModuleDriver/system_monitor.h"
 
 typedef struct oled_item_state{
     int8_t selected_son;

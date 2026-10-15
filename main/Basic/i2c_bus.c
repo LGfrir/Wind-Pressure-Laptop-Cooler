@@ -1,6 +1,6 @@
-#include ".Include/i2c_bus.h"
+#include "Basic/i2c_bus.h"
 #include "esp_log.h"
-#include ".Include/gpio.h"
+#include "Basic/gpio.h"
 
 #define I2C_SDA_IO SDA_PIN
 #define I2C_SCL_IO SCL_PIN

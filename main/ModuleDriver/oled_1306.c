@@ -1,7 +1,7 @@
 
-// #include ".Include/i2c_bus.h"
-// #include ".Include/oled.h"
-// #include ".Include/oled_font.h"
+// #include "Basic/i2c_bus.h"
+// #include "ModuleDriver/oled.h"
+// #include "oled/Resources/oled_font.h"
 
 // #include <stdarg.h>
 // #include <stdio.h>

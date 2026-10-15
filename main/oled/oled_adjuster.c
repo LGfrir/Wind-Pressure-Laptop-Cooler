@@ -3,7 +3,7 @@
  * @author LG_frir (全静态版)
  */
 
-#include "oled_adjuster.h"
+#include "oled/oled_adjuster.h"
 #include <stdarg.h>
 
 void adjuster_init(adjuster_t* adj, const char* name, uint8_t count, ...) {

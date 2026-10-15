@@ -4,8 +4,9 @@
  * @date 2026-04-16 15:15:52
  */
 
-#include ".Include/fan.h"
-#include ".Include/gpio.h"
+#include "ModuleDriver/fan.h"
+#include "ModuleDriver/config_save.h"
+#include "Basic/gpio.h"
 
 #include "driver/gpio.h"
 #include "driver/ledc.h"
@@ -15,6 +16,9 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_random.h"
+#include "ModuleDriver/NimBLE.h"
+
+static const char *TAG = "FAN";
 
 #define PWM_GPIO FAN_PWM_PIN
 #define PWM_TIMER LEDC_TIMER_0
@@ -58,56 +62,62 @@ void fan_send_pwm(uint8_t percentage) {
     ESP_ERROR_CHECK(ledc_update_duty(PWM_MODE, PWM_CHANNEL));
 }
 
-void fan_task(void* arg) {
-    fan.is_on = true;
-    int64_t last_sample_us = esp_timer_get_time();
-
-    while (1) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
-
-        // 读取并清零脉冲计数
-        uint32_t delta_pulse;
-        portENTER_CRITICAL(&s_tach_mux);
-        delta_pulse = s_tach_pulse_count;
-        s_tach_pulse_count = 0;
-        portEXIT_CRITICAL(&s_tach_mux);
-
-        // 用实际时间差算 RPM，不依赖 vTaskDelay 精度
-        int64_t now_us = esp_timer_get_time();
-        int64_t actual_us = now_us - last_sample_us;
-        last_sample_us = now_us;
-
-        if (actual_us > 0) {
-            fan.rpm = (uint32_t)(((uint64_t)delta_pulse * 60ULL * 1000000ULL) / (2ULL * (uint64_t)actual_us));
-        }
-        else {
-            fan.rpm = 0;
-        }
-
-        // ESP_LOGI("FAN", "tach pulse: %lu, rpm: %lu", delta_pulse, s_fan_rpm);
-    }
-}
-
-double kp = 1;
-double ki = 1;
-double kd = 1;
+const double kp = 1;
+const double ki = 1;
+const double kd = 1;
 
 void fan_speed_syncing_task() {
-    while(1) {
-        if(fan.is_on) {
-            if(fan.mode == MANUAL) {
-                fan_send_pwm(fan.speed_percentage);
-            }
-            else if(fan.mode == AUTO) {
-                double e = fan.rpm - fan.target_rpm;
-
-            } else if(fan.mode == FULL_SPEED) {
-                fan_send_pwm(100);
-            }
+    if(fan.is_on) {
+        if(fan.mode == MANUAL) {
+            fan_send_pwm(fan.speed_percentage);
         }
-        else fan_send_pwm(0);
+        else if(fan.mode == AUTO) {
+            double e = fan.rpm - fan.target_rpm;
+
+        } else if(fan.mode == FULL_SPEED) {
+            fan_send_pwm(100);
+        }
+    }
+    else fan_send_pwm(0);
+}
+
+void fan_rpm_update(void) {
+    static int64_t last_sample_us = 0;
+
+    // 读取并清零脉冲计数
+    uint32_t delta_pulse;
+    portENTER_CRITICAL(&s_tach_mux);
+    delta_pulse = s_tach_pulse_count;
+    s_tach_pulse_count = 0;
+    portEXIT_CRITICAL(&s_tach_mux);
+
+    // 用实际时间差算 RPM，不依赖 vTaskDelay 精度
+    int64_t now_us = esp_timer_get_time();
+    int64_t actual_us = now_us - last_sample_us;
+    last_sample_us = now_us;
+
+    if (actual_us > 0) {
+        fan.rpm = (uint32_t)(((uint64_t)delta_pulse * 60ULL * 1000000ULL) / (2ULL * (uint64_t)actual_us));
+    }
+    else {
+        fan.rpm = 0;
+    }
+    // 发送rpm通知
+    nimble_notify_rpm();
+}
+
+void fan_task(void* arg) {
+    fan.is_on = true;
+
+    while (1) {
+        fan_rpm_update();
+        fan_speed_syncing_task();
+        
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
+
+
 
 void fan_init(void) {
     ledc_timer_config_t timer_cfg = { .speed_mode = LEDC_LOW_SPEED_MODE,
@@ -136,7 +146,14 @@ void fan_init(void) {
     gpio_isr_handler_add(FAN_TACH_PIN, fan_tach_isr_handler, NULL);
 
 
-    fan_set_speed(0);
+    fan_set_speed(0);                       /* 默认值：停 */
+
+    if (nvs_get_fan_cfg() == ESP_OK) {
+        fan_set_speed(fan.speed_percentage);
+        ESP_LOGI(TAG, "风扇配置已恢复: mode=%d speed=%u%%",
+                 (int)fan.mode, (unsigned)fan.speed_percentage);
+    }
+
     xTaskCreate(fan_task, "fan_task", 2048, NULL, 1, NULL);
 }
 

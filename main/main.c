@@ -1,21 +1,22 @@
-#include ".Include/encoder.h"
-#include ".Include/event_handler.h"
-#include ".Include/fan.h"
-#include ".Include/gpio.h"
-#include ".Include/i2c_bus.h"
-#include ".Include/oled.h"
-#include ".Include/light.h"
-#include ".Include/oled_image.h"
-#include "system_monitor.h"
+#include "ModuleDriver/encoder.h"
+#include "Tasks/event_handler.h"
+#include "ModuleDriver/fan.h"
+#include "Basic/gpio.h"
+#include "Basic/i2c_bus.h"
+#include "ModuleDriver/oled.h"
+#include "Tasks/light_task.h"
+#include "oled/Resources/oled_image.h"
+#include "ModuleDriver/system_monitor.h"
 #include "test.h"
-#include ".Include/oled_display_task.h"
+#include "Tasks/oled_display_task.h"
+#include "funny.h"
 
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <string.h>
-#include "NimBLE.h"
+#include "ModuleDriver/NimBLE.h"
 
 
 static const char* TAG = "MAIN";
@@ -52,7 +53,14 @@ void app_main(void) {
     xTaskCreate(oled_display, "oled_display_task", 4096 * 4, NULL, 2, NULL);
     xTaskCreate(uart_debug_task, "uart_debug_task", 4096, NULL, 2, NULL); 
     xTaskCreate(light_task, "light_task", 4096, NULL, 5, NULL); 
-    
+
+    xTaskCreate(onboard_rgb_task, "onboard_rgb_task", 4096, NULL, 3, NULL);
+
+    // xTaskCreate(onboard_rgb_flash_task, "onboard_rgb_flash_task", 4096, NULL, 3, NULL);
+
+    // xTaskCreate(onboard_rgb_rage_task, "onboard_rgb_rage_task", 4096, NULL, 3, NULL);
+
+
     while(1) {
         vTaskDelay(pdMS_TO_TICKS(10));
     }

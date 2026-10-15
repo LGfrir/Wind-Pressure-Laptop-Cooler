@@ -5,13 +5,13 @@
  */
 
 
-#include ".Include/oled_menu.h"
-#include ".Include/light.h"
-#include ".Include/oled_display_task.h"
-#include ".Include/oled_plot.h"
-#include "encoder.h"
-#include "light_cfg.h"
-#include "oled_adjuster.h"
+#include "oled/oled_menu.h"
+#include "Tasks/light_task.h"
+#include "Tasks/oled_display_task.h"
+#include "ModuleDriver/oled_plot.h"
+#include "ModuleDriver/encoder.h"
+#include "ModuleDriver/light_mode.h"
+#include "oled/oled_adjuster.h"
 static char output[50];
 
 

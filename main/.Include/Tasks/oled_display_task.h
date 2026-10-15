@@ -1,5 +1,5 @@
 /**
- * @file oled_display_tash.h
+ * @file oled_display_task.h
  * @author LG_frir
  * @date 2026-04-16 19:23:57
  */
@@ -7,7 +7,7 @@
 #ifndef __OLED_DISPLAY_TASK_H__
 #define __OLED_DISPLAY_TASK_H__
 
-#include ".Include/oled_include.h"
+#include "oled/oled_include.h"
 #include "stdint.h"
 
 #define MAX_SLEEP_TIME 100

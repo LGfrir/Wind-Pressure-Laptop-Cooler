@@ -1,11 +1,11 @@
 #include <stdio.h>
-#include ".Include/encoder.h"
-#include ".Include/event_handler.h"
+#include "ModuleDriver/encoder.h"
+#include "Tasks/event_handler.h"
 #include "driver/uart.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "light.h"
+#include "Tasks/light_task.h"
 #define UART_NUM UART_NUM_0
 #define BUF_SIZE 256
 

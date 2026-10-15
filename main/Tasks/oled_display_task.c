@@ -2,11 +2,11 @@
  * @file oled_display_task.c
  */
 
-#include ".Include/oled_display_task.h"
-#include ".Include/event_handler.h"
-#include ".Include/oled.h"
-#include ".Include/oled_include.h"
-#include ".Include/oled_menu.h"
+#include "Tasks/oled_display_task.h"
+#include "Tasks/event_handler.h"
+#include "ModuleDriver/oled.h"
+#include "oled/oled_include.h"
+#include "oled/oled_menu.h"
 
 #include "esp_err.h"
 #include "esp_log.h"
@@ -15,7 +15,7 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "stdint.h"
-#include "encoder.h"
+#include "ModuleDriver/encoder.h"
 
 
 void oled_display_page(const oled_item_t* show_page) {

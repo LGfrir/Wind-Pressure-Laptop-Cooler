@@ -17,3 +17,7 @@ backups/
 # ---- .NET (pc_client) ----
 obj/
 bin/
+
+# ---- Python ----
+__pycache__/
+*.pyc

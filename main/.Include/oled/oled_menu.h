@@ -7,7 +7,7 @@
 #ifndef __OLED_MENU_H__
 #define __OLED_MENU_H__
 
-#include ".Include/oled_include.h"
+#include "oled/oled_include.h"
 
 // 第一级
 extern const oled_item_t menu;

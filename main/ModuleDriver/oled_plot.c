@@ -5,8 +5,8 @@
  * @brief OLED 简易绘图组件实现，提供滚动/扫描两种实时曲线绘制功能。
  */
 
-#include ".Include/oled_plot.h"
-#include ".Include/oled.h"
+#include "ModuleDriver/oled_plot.h"
+#include "ModuleDriver/oled.h"
 
 #include <stdlib.h>
 #include <string.h>

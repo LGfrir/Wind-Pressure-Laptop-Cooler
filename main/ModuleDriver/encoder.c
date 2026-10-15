@@ -1,5 +1,5 @@
-#include ".Include/encoder.h"
-#include ".Include/gpio.h"
+#include "ModuleDriver/encoder.h"
+#include "Basic/gpio.h"
 
 #include <stdbool.h>
 #include <stdint.h>

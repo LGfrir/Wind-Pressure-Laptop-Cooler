@@ -65,7 +65,7 @@ SmartFan 是一个基于 ESP-IDF 的 ESP32-S3 智能风扇控制项目。项目�
 引脚定义位于：
 
 ```text
-main/.Include/gpio.h
+main/.Include/Basic/gpio.h
 ```
 
 ## 项目结构
@@ -81,24 +81,56 @@ SmartFan/
 |   +-- CMakeLists.txt
 |   +-- Basic/
 |   |   +-- i2c_bus.c
+|   |   +-- ws2812.c
 |   +-- ModuleDriver/
 |   |   +-- encoder.c
 |   |   +-- fan.c
-|   |   +-- light.c
+|   |   +-- light_mode.c
 |   |   +-- oled.c
 |   |   +-- oled_plot.c
 |   |   +-- system_monitor.c
 |   +-- Tasks/
 |   |   +-- event_handler.c
+|   |   +-- light_task.c
 |   |   +-- oled_display_task.c
 |   +-- oled/
 |   |   +-- oled_adjuster.c
 |   |   +-- oled_menu.c
 |   +-- .Include/
-|       +-- 项目头文件
+|       +-- main.h
+|       +-- test.h
+|       +-- Basic/
+|       |   +-- gpio.h
+|       |   +-- i2c_bus.h
+|       |   +-- ws2812.h
+|       +-- ModuleDriver/
+|       |   +-- encoder.h
+|       |   +-- fan.h
+|       |   +-- light_cfg.h
+|       |   +-- light_mode.h
+|       |   +-- NimBLE.h
+|       |   +-- oled.h
+|       |   +-- oled_plot.h
+|       |   +-- system_monitor.h
+|       +-- Tasks/
+|       |   +-- encoder_task.h
+|       |   +-- event_handler.h
+|       |   +-- gatt_svc.h
+|       |   +-- light_task.h
+|       |   +-- oled_display_task.h
+|       +-- oled/
+|           +-- oled_adjuster.h
+|           +-- oled_include.h
+|           +-- oled_menu.h
+|           +-- Resources/
+|               +-- oled_font.h
+|               +-- oled_image.h
 +-- managed_components/
     +-- espressif__led_strip/
 ```
+
+头文件目录按源码模块分层，项目内统一使用 `Basic/...`、`ModuleDriver/...`、`Tasks/...` 和 `oled/...` 的包含路径。仅有头文件的 GPIO 定义归入 `Basic`，灯效配置归入 `ModuleDriver`，OLED 字体和图片归入 `oled/Resources`；预留的编码器任务声明归入 `Tasks`。
+
 
 ## 核心模块
 
@@ -107,7 +139,7 @@ SmartFan/
 风扇驱动负责配置 LEDC PWM 输出，并通过 Tach 信号统计风扇转速。
 
 - 源文件：`main/ModuleDriver/fan.c`
-- 头文件：`main/.Include/fan.h`
+- 头文件：`main/.Include/ModuleDriver/fan.h`
 - PWM 频率：`25000 Hz`
 - PWM 分辨率：`10-bit`
 - Tach 中断触发方式：下降沿
@@ -117,7 +149,7 @@ SmartFan/
 编码器驱动通过 A/B 两相 GPIO 中断和状态转移表判断旋转方向。
 
 - 源文件：`main/ModuleDriver/encoder.c`
-- 头文件：`main/.Include/encoder.h`
+- 头文件：`main/.Include/ModuleDriver/encoder.h`
 - 按键处理：`main/Tasks/event_handler.c`
 
 按键逻辑：
@@ -155,8 +187,10 @@ OLED UI 使用 `oled_item_t` 结构组织为树形菜单。
 
 灯效驱动使用 GPIO 软件 bit-bang 的方式生成 WS2812/SK6812 风格时序。
 
-- 源文件：`main/ModuleDriver/light.c`
-- 头文件：`main/.Include/light.h`
+- 灯珠驱动：`main/Basic/ws2812.c`、`main/.Include/Basic/ws2812.h`
+- 灯效模式：`main/ModuleDriver/light_mode.c`、`main/.Include/ModuleDriver/light_mode.h`
+- 执行任务：`main/Tasks/light_task.c`、`main/.Include/Tasks/light_task.h`
+- 模式配置：`main/.Include/ModuleDriver/light_cfg.h`
 - 灯珠数量：`8`
 
 支持灯效：
@@ -176,7 +210,7 @@ OLED UI 使用 `oled_item_t` 结构组织为树形菜单。
 系统监控模块用于读取运行时状态和 FreeRTOS 任务统计信息。
 
 - 源文件：`main/ModuleDriver/system_monitor.c`
-- 头文件：`main/.Include/system_monitor.h`
+- 头文件：`main/.Include/ModuleDriver/system_monitor.h`
 
 已启用的 FreeRTOS 统计配置位于 `sdkconfig.defaults`：
 

@@ -13,7 +13,7 @@
  * CONFIG_FREERTOS_USE_STATS_FORMATTING_FUNCTIONS=y
  */
 
-#include "system_monitor.h"
+#include "ModuleDriver/system_monitor.h"
 
 #include <stdlib.h>
 #include <string.h>

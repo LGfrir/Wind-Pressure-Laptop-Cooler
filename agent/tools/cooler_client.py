@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import struct
 import sys
 
 from bleak import BleakClient, BleakScanner
@@ -33,14 +34,16 @@ SVC_NAMES = {
     SVC_LIGHT.lower(): "light_svc",
 }
 
-#  特征别名（能直接用在 r / w / n 命令里）。
+#  特征短别名（能直接用在 r / w / n 命令里）。
 #
 #  ⚠️ 固件那边这几个名字和实际内容还没对齐，正在改：
 #     mode -> 现在读写的其实是【灯】的模式（本该属于 light_svc）
 #     pwm  -> 现在读恒返回 0、写什么都不做（假特征，待修）
-#     rpm  -> 只读 + NOTIFY，固件每秒推一次
+#     rpm  -> 有 NOTIFY，固件每秒推一次；但 flags 里没有 READ，
+#             所以客户端主动 r rpm 会被板子拒（订阅那条路不受影响）
 #
-#  改 UUID 时只改这一段，脚本其它地方不用动。
+#  其它特征不用登记：固件 UUID 的内容就是 ASCII 名字，uuid_name() 会反解出来，
+#  所以 light_brightness / cfg_lt_static / laptop_cpu_temp 这些可以直接写名字用。
 CHR_ALIASES = {
     # ---- fan_svc ----
     "mode":     "00000000-0000-0000-6564-6f6d5f6e6166",   # fan_mode
@@ -61,6 +64,55 @@ DEFAULT_ADDR = "84:C7:BB:56:6A:16"
 def hexdump(data) -> str:
     """bytes -> '64 00 12' 这种形式。"""
     return " ".join(f"{b:02X}" for b in data)
+
+
+def uuid_name(uuid: str) -> str:
+    """把固件的自定义 UUID 反解成 ASCII 名字（认不出来返回空串）。
+
+    固件里写的是 BLE_UUID128_INIT(0x66,0x61,...)，内容就是 "fan_pwm" 这种
+    ASCII + 补零；显示成 UUID 字符串时字节序是反的，反过来即可。
+    这样固件新加的特征不用再往 CHR_ALIASES 里补名字。
+    """
+    try:
+        raw = bytes.fromhex(str(uuid).replace("-", ""))
+    except ValueError:
+        return ""
+    if len(raw) != 16:
+        return ""
+    text = bytes(reversed(raw)).rstrip(b"\x00")
+    if not text:
+        return ""
+    try:
+        name = text.decode("ascii")
+    except UnicodeDecodeError:
+        return ""
+    return name if all(32 <= ord(c) < 127 for c in name) else ""
+
+
+def describe(data) -> str:
+    """按长度解释一包数据。
+
+    ⚠️ 固件里 laptop_* 那 13 个特征发的是 double（小端），8 字节；
+    fan_used / fan_speed 是 5 个 double（40 字节）。
+    """
+    raw = bytes(data)
+    n = len(raw)
+    parts = []
+    if n == 1:
+        parts.append(f"u8={raw[0]}")
+    elif n == 2:
+        parts.append(f"u16={int.from_bytes(raw, 'little')}")
+    elif n == 4:
+        parts.append(f"u32={int.from_bytes(raw, 'little')}")
+        parts.append(f"i32={int.from_bytes(raw, 'little', signed=True)}")
+        parts.append(f"f32={struct.unpack('<f', raw)[0]:.6g}")
+    elif n == 8:
+        parts.append(f"double={struct.unpack('<d', raw)[0]:.6g}")
+    elif n == 40:
+        parts.append("double[5]=" + "  ".join(f"{v:.6g}" for v in struct.unpack("<5d", raw)))
+    if n and all(32 <= b < 127 for b in raw):
+        parts.append(f'ascii="{raw.decode("ascii")}"')
+    return "  ".join(parts)
 
 
 def parse_hex(text: str) -> bytes:
@@ -138,7 +190,7 @@ def print_tree(client: BleakClient) -> list:
         for ch in svc.characteristics:
             idx = len(chars)
             chars.append(ch)
-            alias = alias_of(ch.uuid)
+            alias = alias_of(ch.uuid) or uuid_name(ch.uuid)
             tag = f"  ({alias})" if alias else ""
             print(f"  [{idx}] {ch.uuid}{tag}   [{', '.join(ch.properties)}]")
 
@@ -163,6 +215,11 @@ def resolve(token: str, chars: list):
     t = token.strip().lower()
     for ch in chars:
         if ch.uuid.lower() == t:
+            return ch
+
+    # 按固件里反解出来的名字（fan_pwm / light_brightness / laptop_cpu_temp ...）
+    for ch in chars:
+        if uuid_name(ch.uuid).lower() == t:
             return ch
 
     return None
@@ -219,8 +276,9 @@ async def repl(client: BleakClient) -> None:
                 print(f"读取失败: {e!r}")
                 continue
             print(f"读到 {len(data)} 字节: {hexdump(data)}")
-            if len(data) in (1, 2, 4, 8):
-                print(f"     小端整数解释: {int.from_bytes(data, 'little')}")
+            extra = describe(data)
+            if extra:
+                print(f"     解释: {extra}")
             continue
 
         # ---- 写 ----
@@ -254,11 +312,14 @@ async def repl(client: BleakClient) -> None:
             if target is None:
                 print(f"找不到特征: {rest[0]}")
                 continue
+            def on_notify(_c, d) -> None:
+                extra = describe(d)
+                print(f"\n[通知] {hexdump(d)}")
+                if extra:
+                    print(f"        解释: {extra}")
+
             try:
-                await client.start_notify(
-                    target,
-                    lambda _c, d: print(f"\n[通知] {hexdump(d)}"),
-                )
+                await client.start_notify(target, on_notify)
             except Exception as e:
                 print(f"订阅失败: {e!r}")
                 continue
