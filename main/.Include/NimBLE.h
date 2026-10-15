@@ -21,6 +21,6 @@
 #define DEVICE_NAME "连上尹浩荣jj断两根"
 
 void nimble_init_as_prph(void);
-
+void nimble_notify_rpm(void);
 
 #endif /* __NIMBLE_H__ */

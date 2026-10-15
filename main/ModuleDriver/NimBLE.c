@@ -7,13 +7,39 @@
 #include "NimBLE.h"
 #include "gatt_svc.h"
 #include "esp_err.h"
-
 #include <assert.h>
 
+#define NOTIFY_MAX_CONN CONFIG_BT_NIMBLE_MAX_CONNECTIONS
+typedef struct notify_sub_t_ {
+    uint16_t conn_handle;
+    uint16_t val_handle;
+    bool on;
+    bool used;
+} notify_sub_t;
+
+
 static uint8_t own_addr_type;
+static notify_sub_t s_subs[NOTIFY_MAX_CONN];
 static const char *TAG = "NIMBLE";
 
 void ble_store_config_init(void);
+
+void nimble_notify_rpm(void) {
+    for (int i = 0; i < NOTIFY_MAX_CONN; i++) {
+        if (!s_subs[i].used || !s_subs[i].on) {
+            continue;
+        }
+
+        int rc = ble_gatts_notify_custom(s_subs[i].conn_handle,
+                                         s_subs[i].val_handle,
+                                         NULL);          /* ← NULL = 让协议栈去读特征 */
+        if (rc != 0) {
+            ESP_LOGW(TAG, "notify → conn=%d 失败: rc=%d",
+                     s_subs[i].conn_handle, rc);
+        }
+    }
+}
+
 
 /* 前置声明:bleprph_advertise 定义在本文件后面,但 bleprph_gap_event 要调用它 */
 static void bleprph_advertise(void);
@@ -34,6 +60,18 @@ static int bleprph_gap_event(struct ble_gap_event *event, void *arg) {
         case BLE_GAP_EVENT_DISCONNECT: {
             MODLOG_DFLT(INFO, "disconnect; reason=%d ", event->disconnect.reason);
             MODLOG_DFLT(INFO, "\n");
+            bool found = false;
+            for (int i = 0; i < NOTIFY_MAX_CONN; i++) {
+                if (s_subs[i].used && s_subs[i].conn_handle == event->disconnect.conn.conn_handle) {
+                    s_subs[i].used = false;
+                    s_subs[i].on   = false;
+                    found = true;
+                    break;                      /* 一个连接只占一个槽，找到就停 */
+                }
+            }
+            if (!found) {
+                ESP_LOGW(TAG, "断开时没找到订阅记录 conn=%d", event->disconnect.conn.conn_handle);
+            }
 
             bleprph_advertise();
             return 0;
@@ -43,6 +81,39 @@ static int bleprph_gap_event(struct ble_gap_event *event, void *arg) {
             bleprph_advertise();
             return 0;
         }
+        case BLE_GAP_EVENT_SUBSCRIBE:
+            ESP_LOGI(TAG, "subscribe: conn=%d handle=%d %d -> %d",
+                    event->subscribe.conn_handle,
+                    event->subscribe.attr_handle,
+                    event->subscribe.prev_notify,
+                    event->subscribe.cur_notify);
+
+            int idx      = -1;      /* 已有记录的位置 */
+            int free_idx = -1;      /* 第一个空槽的位置 */
+            
+
+
+            for (int i = 0; i < NOTIFY_MAX_CONN; i++) {
+                if (s_subs[i].used && s_subs[i].conn_handle == event->subscribe.conn_handle) {
+                    idx = i;
+                    break;
+                }
+                if (!s_subs[i].used && free_idx < 0) {
+                    free_idx = i;
+                }
+            }
+
+            if (idx < 0) {
+                if (free_idx < 0) { ESP_LOGE(TAG, "订阅表满了"); return 0; }
+                idx = free_idx;
+                s_subs[idx].conn_handle = event->subscribe.conn_handle;
+                s_subs[idx].used = true;
+            }
+
+            s_subs[idx].val_handle = event->subscribe.attr_handle;
+            s_subs[idx].on         = event->subscribe.cur_notify;
+
+            return 0;
         default: 
             return 0;
     }

@@ -22,22 +22,33 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 # ============================================================
 #  设备标识 —— UUID 变更时【只改这一段】
 # ============================================================
-#  广播包里带的服务 UUID。客户端靠它找设备，不要靠设备名
-#  （名字改过好几次了：cooler → yhrdsb → …）
-SVC_FAN = "00000000-0000-0000-0063-76735f6e6166"
+#  广播包里带的是 fan_svc 的 UUID。客户端靠它找设备，不要靠设备名
+#  （名字改过好几次了：cooler → yhrdsb → 连上尹浩荣jj断两根）
+SVC_FAN   = "00000000-0000-0000-0063-76735f6e6166"   # fan_svc
+SVC_LIGHT = "00000000-0000-0063-7673-5f746867696c"   # light_svc（不在广播里）
 
-#  三个特征的 UUID 和易记别名（别名能直接用在 read/write 命令里）。
+#  服务 UUID -> 好记的名字（只是给服务树标记用）
+SVC_NAMES = {
+    SVC_FAN.lower():   "fan_svc",
+    SVC_LIGHT.lower(): "light_svc",
+}
+
+#  特征别名（能直接用在 r / w / n 命令里）。
 #
-#  ⚠️ 这几个名字目前和实际内容对不上，固件那边准备改：
-#     mode  -> 现在控制的是【灯】的模式，即将改名 light_mode
-#     pwm   -> 现在读恒返回 0、写什么都不做（假特征，待修）
-#     speed -> 读出来是【实测 RPM】，写进去是【目标 RPM】，读写两个概念
+#  ⚠️ 固件那边这几个名字和实际内容还没对齐，正在改：
+#     mode -> 现在读写的其实是【灯】的模式（本该属于 light_svc）
+#     pwm  -> 现在读恒返回 0、写什么都不做（假特征，待修）
+#     rpm  -> 只读 + NOTIFY，固件每秒推一次
 #
-#  改 UUID 时，把这里和 SVC_FAN 一起换掉，脚本其它地方不用动。
+#  改 UUID 时只改这一段，脚本其它地方不用动。
 CHR_ALIASES = {
-    "mode":  "00000000-0000-0000-6564-6f6d5f6e6166",
-    "pwm":   "00000000-0000-0000-006d-77705f6e6166",
-    "speed": "00000000-0000-0064-6565-70735f6e6166",
+    # ---- fan_svc ----
+    "mode":     "00000000-0000-0000-6564-6f6d5f6e6166",   # fan_mode
+    "pwm":      "00000000-0000-0000-006d-77705f6e6166",   # fan_pwm
+    "rpm":      "00000000-0000-0000-006d-70725f6e6166",   # fan_rpm   ← 可订阅
+    # ---- light_svc ----
+    "light":    "00000000-0000-6564-6f6d-5f746867696c",   # light_mode
+    "lightcfg": "69666e6f-635f-6564-6f6d-5f746867696c",   # light_mode_config
 }
 
 DEFAULT_ADDR = "84:C7:BB:56:6A:16"
@@ -121,7 +132,8 @@ def print_tree(client: BleakClient) -> list:
     print("GATT 服务树")
     print("=" * 78)
     for svc in client.services:
-        mark = "      <<< fan_svc" if svc.uuid.lower() == SVC_FAN else ""
+        name = SVC_NAMES.get(svc.uuid.lower())
+        mark = f"      <<< {name}" if name else ""
         print(f"\n服务 {svc.uuid}{mark}")
         for ch in svc.characteristics:
             idx = len(chars)
@@ -137,13 +149,23 @@ def print_tree(client: BleakClient) -> list:
 
 
 def resolve(token: str, chars: list):
-    """把 '2' 或 'pwm' 解析成特征。"""
+    """把 '2' / 'pwm' / 完整 UUID 解析成特征。"""
     if token in CHR_ALIASES:
         return CHR_ALIASES[token]
+
+    # 按序号
     try:
         return chars[int(token)]
     except (ValueError, IndexError):
-        return None
+        pass
+
+    # 按完整 UUID
+    t = token.strip().lower()
+    for ch in chars:
+        if ch.uuid.lower() == t:
+            return ch
+
+    return None
 
 
 # ============================================================
@@ -155,7 +177,9 @@ async def repl(client: BleakClient) -> None:
 
     while True:
         try:
-            line = input("\n> ").strip()
+            # ⚠️ 必须丢到线程里读，不能用阻塞的 input()：
+            #    input() 会把 asyncio 事件循环卡死 → bleak 收不到 BLE 通知。
+            line = (await asyncio.to_thread(input, "\n> ")).strip()
         except (EOFError, KeyboardInterrupt):
             print()
             return

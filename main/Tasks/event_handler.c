@@ -14,6 +14,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
+#include "NimBLE.h"
 
 static encoder_data_t s_encoder_data;
 static uint32_t s_rpm;
@@ -106,8 +107,8 @@ encoder_data_t get_encoder_data(void) { return s_encoder_data; }
 void rpm_handler_task(void* arg) {
     ESP_LOGI("RPM_HANDLER_TASK", "Handling RPM data...");
     while (1) {
-        // 这里可以添加处理 RPM 数据的逻辑，例如从队列读取数据，进行计算等
-        s_rpm = fan_get_rpm(); // 假设有一个函数 calculate_rpm() 来计算 RPM
+        s_rpm = fan_get_rpm();
+        nimble_notify_rpm();
         vTaskDelay(pdMS_TO_TICKS(1000)); // 模拟处理时间，每秒处理一次
     }
 }
@@ -120,7 +121,7 @@ void data_handler_init(void) {
     xTaskCreate(encoder_data_handler_task, "encoder_data_handler", 4096, NULL, 1, NULL);
 
     ESP_LOGI("DATA_HANDLER_INIT", "Creating RPM handler task...");
-    xTaskCreate(rpm_handler_task, "rpm_handler", 2048, NULL, 1, NULL);
+    xTaskCreate(rpm_handler_task, "rpm_handler", 4096, NULL, 1, NULL);
 }
 
 

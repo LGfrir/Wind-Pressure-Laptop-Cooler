@@ -38,7 +38,7 @@ void app_main(void) {
     i2c_bus_init();
     oled_init();
     encoder_init();
-    fan_init();
+    fan_init(); 
     system_monitor_init();
     oled_set_font(1);
     data_handler_init();

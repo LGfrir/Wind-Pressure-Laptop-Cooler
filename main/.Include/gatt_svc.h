@@ -9,6 +9,10 @@
 
 #include "NimBLE.h"
 
+/*
+    风扇相关
+*/
+
 #define FAN_SVC_UUID_REG BLE_UUID128_INIT \
 (0x66,0x61,0x6e,0x5f,0x73,0x76,0x63,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00)
 // ASCII: fan_svc
@@ -21,9 +25,42 @@
 (0x66,0x61,0x6e,0x5f,0x70,0x77,0x6d,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00)
 // ASCII: fan_pwm
 
-#define FAN_CHR_SPEED_UUID_REG BLE_UUID128_INIT \
-(0x66,0x61,0x6e,0x5f,0x73,0x70,0x65,0x65,0x64,0x00,0x00,0x00,0x00,0x00,0x00,0x00)
-// ASCII: fan_speed
+#define FAN_CHR_RPM_UUID_REG BLE_UUID128_INIT \
+(0x66,0x61,0x6e,0x5f,0x72,0x70,0x6d,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00)
+// ASCII: fan_rpm
+
+#define FAN_CHR_LIGHT_MODE_UUID_REG BLE_UUID128_INIT \
+(0x6c,0x69,0x67,0x68,0x74,0x5f,0x6d,0x6f,0x64,0x65,0x00,0x00,0x00,0x00,0x00,0x00)
+// ASCII: light_mode
+
+static const ble_uuid128_t FAN_SVC_UUID                 = FAN_SVC_UUID_REG;
+static const ble_uuid128_t FAN_CHR_MODE_UUID            = FAN_CHR_MODE_UUID_REG;
+static const ble_uuid128_t FAN_CHR_PWM_UUID             = FAN_CHR_PWM_UUID_REG;
+static const ble_uuid128_t FAN_CHR_RPM_UUID             = FAN_CHR_RPM_UUID_REG;
+int fan_svc_callback(uint16_t conn_handle, uint16_t attr_handle,
+               struct ble_gatt_access_ctxt *ctxt, void *arg);
+
+/*
+    灯光相关
+*/
+#define LIGHT_SVC_UUID_REG BLE_UUID128_INIT \
+(0x6c,0x69,0x67,0x68,0x74,0x5f,0x73,0x76,0x63,0x00,0x00,0x00,0x00,0x00,0x00,0x00)
+// ASCII: light_svc
+
+#define LIGHT_CHR_MODE_UUID_REG BLE_UUID128_INIT \
+(0x6c,0x69,0x67,0x68,0x74,0x5f,0x6d,0x6f,0x64,0x65,0x00,0x00,0x00,0x00,0x00,0x00)
+// ASCII: light_mode
+
+#define LIGHT_CHR_MODE_CONFIG_UUID_REG BLE_UUID128_INIT \
+(0x6c,0x69,0x67,0x68,0x74,0x5f,0x6d,0x6f,0x64,0x65,0x5f,0x63,0x6f,0x6e,0x66,0x69)
+// ASCII: light_mode_config
+
+static const ble_uuid128_t LIGHT_SVC_UUID               = LIGHT_SVC_UUID_REG;
+static const ble_uuid128_t LIGHT_CHR_MODE_UUID          = LIGHT_CHR_MODE_UUID_REG;
+static const ble_uuid128_t LIGHT_CHR_MODE_CONFIG_UUID   = LIGHT_CHR_MODE_CONFIG_UUID_REG;
+int light_svc_callback(uint16_t conn_handle, uint16_t attr_handle,
+               struct ble_gatt_access_ctxt *ctxt, void *arg);
+
 
 #define SYSTEM_SVC_UUID_REG BLE_UUID128_INIT \
 (0x73,0x79,0x73,0x5f,0x73,0x76,0x63,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00)
@@ -33,15 +70,9 @@
 (0x73,0x63,0x72,0x65,0x65,0x6e,0x5f,0x73,0x76,0x63,0x00,0x00,0x00,0x00,0x00,0x00)
 // ASCII: screen_svc
 
-static const ble_uuid128_t FAN_SVC_UUID       = FAN_SVC_UUID_REG;
-static const ble_uuid128_t FAN_CHR_MODE_UUID  = FAN_CHR_MODE_UUID_REG;
-static const ble_uuid128_t FAN_CHR_PWM_UUID   = FAN_CHR_PWM_UUID_REG;
-static const ble_uuid128_t FAN_CHR_SPEED_UUID = FAN_CHR_SPEED_UUID_REG;
-int fan_svc_callback(uint16_t conn_handle, uint16_t attr_handle,
-               struct ble_gatt_access_ctxt *ctxt, void *arg);
 
-static const ble_uuid128_t SYSTEM_SVC_UUID    = SYSTEM_SVC_UUID_REG;
-static const ble_uuid128_t SCREEN_SVC_UUID    = SCREEN_SVC_UUID_REG;
+static const ble_uuid128_t SYSTEM_SVC_UUID              = SYSTEM_SVC_UUID_REG;
+static const ble_uuid128_t SCREEN_SVC_UUID              = SCREEN_SVC_UUID_REG;
 
 
 
@@ -60,16 +91,36 @@ static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
             {
                 .uuid = &FAN_CHR_PWM_UUID.u,
                 .access_cb = fan_svc_callback,
-                .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE,
+                .flags = BLE_GATT_CHR_F_READ |BLE_GATT_CHR_F_WRITE,
                 .arg = (void*)(intptr_t)2
             },
             {
-                .uuid = &FAN_CHR_SPEED_UUID.u,
+                .uuid = &FAN_CHR_RPM_UUID.u,
                 .access_cb = fan_svc_callback,
-                .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE,
+                .flags = BLE_GATT_CHR_F_NOTIFY | BLE_GATT_CHR_F_WRITE,
                 .arg = (void*)(intptr_t)3
             },
-            {0}
+            { 0 }
+        }
+        
+    },
+    {
+        .type = BLE_GATT_SVC_TYPE_PRIMARY,
+        .uuid = &LIGHT_SVC_UUID.u,
+        .characteristics = (struct ble_gatt_chr_def[]) {
+            {
+                .uuid = &LIGHT_CHR_MODE_UUID.u,
+                .access_cb = light_svc_callback,
+                .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE,
+                .arg = (void*)(intptr_t)1
+            },
+            {
+                .uuid = &LIGHT_CHR_MODE_CONFIG_UUID.u,
+                .access_cb = light_svc_callback,
+                .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE,
+                .arg = (void*)(intptr_t)2
+            },
+            { 0 }
         }
     },
     { 0 }

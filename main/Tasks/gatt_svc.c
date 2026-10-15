@@ -69,4 +69,10 @@ int fan_svc_callback(uint16_t conn_handle, uint16_t attr_handle,
 }
 
 
+int light_svc_callback(uint16_t conn_handle, uint16_t attr_handle,
+               struct ble_gatt_access_ctxt *ctxt, void *arg) {
+        
 
+
+    return BLE_ATT_ERR_UNLIKELY;
+}

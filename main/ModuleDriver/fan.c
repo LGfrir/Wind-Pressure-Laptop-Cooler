@@ -14,6 +14,7 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "esp_random.h"
 
 #define PWM_GPIO FAN_PWM_PIN
 #define PWM_TIMER LEDC_TIMER_0
@@ -43,8 +44,11 @@ static void IRAM_ATTR fan_tach_isr_handler(void* arg) {
     }
 }
 
-
-uint32_t fan_get_rpm(void) { return fan.rpm; }
+// 测试NOTIFY用，暂时将rpm改为随机值，之后恢复
+uint32_t fan_get_rpm(void) { 
+    return rand() % 100;
+    return fan.rpm;
+}
 
 void fan_send_pwm(uint8_t percentage) {
     // Implementation for sending PWM signal to control fan speed
