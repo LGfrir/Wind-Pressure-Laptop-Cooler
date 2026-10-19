@@ -48,6 +48,11 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 
 try:
+    from .light_protocol import LIGHT_UPDATE_PERIODS_MS, validate_light_payload
+except ImportError:
+    from light_protocol import LIGHT_UPDATE_PERIODS_MS, validate_light_payload
+
+try:
     from bleak import BleakClient, BleakScanner
     from bleak.backends.characteristic import BleakGATTCharacteristic
 except ImportError as exc:  # 没装 bleak 时给个能看懂的提示，而不是一串 traceback
@@ -134,7 +139,7 @@ CFG_FORMAT_HINT = (
     "cfg_lt_chase       [size][rgb]xN                1+3N\n"
     "cfg_lt_round       [main rgb][sub rgb][range f32]\n"
     "                   [range_main f32][wait_ms i32][speed f32]  22B\n"
-    "（多字节一律小端）"
+    "（多字节一律小端；所有渐变时间和闪烁间隔必须大于 0 ms）"
 )
 
 
@@ -554,7 +559,8 @@ class App(tk.Tk):
         row2.pack(fill="x", padx=6, pady=4)
         ttk.Label(row2, text="刷新周期 ms").pack(side="left")
         self.var_period = tk.IntVar(value=10)
-        ttk.Spinbox(row2, from_=1, to=255, width=6, textvariable=self.var_period).pack(
+        ttk.Combobox(row2, values=LIGHT_UPDATE_PERIODS_MS, state="readonly",
+                     width=6, textvariable=self.var_period).pack(
             side="left", padx=4
         )
         ttk.Button(
@@ -564,7 +570,7 @@ class App(tk.Tk):
             side="left", padx=4
         )
         ttk.Label(
-            row2, foreground="#666", text="周期不落盘（时序参数），给 0 会被拒"
+            row2, foreground="#666", text="10 / 20 / 50 / 100 / 200 ms；周期不落盘"
         ).pack(side="left", padx=10)
 
         row3 = ttk.Frame(tab)
@@ -866,6 +872,7 @@ class App(tk.Tk):
         self.post(self._show_value, "读", ch.uuid, bytes(data))
 
     async def _write_async(self, ch: BleakGATTCharacteristic, payload: bytes) -> None:
+        validate_light_payload(uuid_name(ch.uuid), payload)
         client = self._connected_client()
         await asyncio.wait_for(
             client.write_gatt_char(ch, payload, response=True), timeout=10.0
@@ -1006,8 +1013,8 @@ class App(tk.Tk):
 
     def q_write_period(self) -> None:
         period = int(self.var_period.get())
-        if not 1 <= period <= 255:
-            self.log("[X] 周期要 1..255（0 会让固件除零，被拒）")
+        if period not in LIGHT_UPDATE_PERIODS_MS:
+            self.log(f"[X] 刷新周期只接受 {LIGHT_UPDATE_PERIODS_MS} ms")
             return
         self.q_write("light_update_per", bytes([period]))
 

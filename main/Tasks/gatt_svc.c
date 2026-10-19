@@ -81,7 +81,7 @@ int fan_svc_callback(uint16_t conn_handle, uint16_t attr_handle,
     if(ctxt->op == BLE_GATT_ACCESS_OP_READ_CHR) {
         if(which_chr == 1) // 灯模式
         {
-            light_mode_t value = light_get_cfg()->mode;
+            fan_mode_t value = fan_get_mode();
             return pkt_out(ctxt, &value, sizeof(value));
         }
         else if(which_chr == 2) // PWM
@@ -101,16 +101,22 @@ int fan_svc_callback(uint16_t conn_handle, uint16_t attr_handle,
     // 写
     else if(ctxt->op == BLE_GATT_ACCESS_OP_WRITE_CHR) {
         if(which_chr == 1) {
-            light_mode_t value = 0;
+            fan_mode_t value = 0;
             int err = pkt_in(ctxt, &value, sizeof(value));
             if (err != 0) {
                 return err;
             }
 
-            light_get_cfg()->mode = value;
+            fan_set_mode(value);
             return 0;
         }
         else if(which_chr == 2) {
+            uint8_t value = 0;
+            int err = pkt_in(ctxt, &value, sizeof(value));
+            if (err != 0) {
+                return err;
+            }
+            fan_set_speed(value);
             return 0;
         }
         else if(which_chr == 3) {
@@ -190,7 +196,7 @@ _Static_assert(sizeof(pkt_round_t)  == 22, "round 包必须是 22 字节");
  *
  * arg 就是 gatt_svc.h 服务表里的 1 / 2 / 3。载荷（小端）:
  *   chr1 mode            [i32]   4     就是 light_mode_t 的数值
- *   chr2 update_period   [u8]    1     单位 ms，不能为 0
+ *   chr2 update_period   [u8]    1     仅 10 / 20 / 50 / 100 / 200 ms
  *   chr3 brightness      [u8]    1     0..255
  */
 int light_svc_callback(uint16_t conn_handle, uint16_t attr_handle,
@@ -235,14 +241,11 @@ int light_svc_callback(uint16_t conn_handle, uint16_t attr_handle,
             if (err != 0) {
                 return err;
             }
-            if (period == 0) {
-                /* light_xxx() 里都要算 switch_ms / update_period，
-                 * 给 0 就是除零，灯效任务直接崩，这里必须挡掉。 */
+            if (!light_set_update_period(period)) {
                 return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
             }
 
             /* 时序参数：按 config_save.c 的设计【不落盘】 */
-            cfg->update_period = period;
             return 0;
         }
         case 3: {                                   /* 亮度 */
@@ -252,8 +255,7 @@ int light_svc_callback(uint16_t conn_handle, uint16_t attr_handle,
                 return err;
             }
 
-            cfg->brightness = brightness;
-            light_brightness_update();              /* 立刻反映到像素缓存，不用等下一帧 */
+            light_set_brightness(brightness);         /* 下一帧统一缩放和发送 */
             nvs_save_light_cfg(cfg);
             return 0;
         }
@@ -402,6 +404,9 @@ int config_svc_callback(uint16_t conn_handle, uint16_t attr_handle,
                 if (err != 0) {
                     return err;
                 }
+                if (cfg.switch_ms == 0) {
+                    return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
+                }
                 if (nvs_save_rainbow_cfg(&cfg) != ESP_OK) {
                     return BLE_ATT_ERR_UNLIKELY;
                 }
@@ -420,6 +425,9 @@ int config_svc_callback(uint16_t conn_handle, uint16_t attr_handle,
                     .switch_ms = pkt.switch_ms,
                     .color     = pkt.color,
                 };
+                if (cfg.switch_ms == 0) {
+                    return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
+                }
                 if (nvs_save_breath_cfg(&cfg) != ESP_OK) {
                     return BLE_ATT_ERR_UNLIKELY;
                 }
@@ -434,6 +442,9 @@ int config_svc_callback(uint16_t conn_handle, uint16_t attr_handle,
                     return err;
                 }
 
+                if (mode > 1) {
+                    return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
+                }
                 random_cfg_t cfg = { .mode = (mode != 0) };
                 if (nvs_save_random_cfg(&cfg) != ESP_OK) {
                     return BLE_ATT_ERR_UNLIKELY;
@@ -456,6 +467,9 @@ int config_svc_callback(uint16_t conn_handle, uint16_t attr_handle,
                 uint16_t period = 0;
                 memcpy(colors, &pkt[1], sizeof(colors));
                 memcpy(&period, &pkt[1 + sizeof(colors)], sizeof(period));
+                if (period == 0) {
+                    return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
+                }
 
                 blink_cfg_t tmp = { .colors = colors, .period = period };
                 if (nvs_save_blink_cfg(&tmp) != ESP_OK) {
@@ -482,6 +496,11 @@ int config_svc_callback(uint16_t conn_handle, uint16_t attr_handle,
                     return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
                 }
 
+                for (int i = 0; i < size; i++) {
+                    if (fades_ms[i] == 0) {
+                        return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
+                    }
+                }
                 custom_breath_cfg_t tmp = {
                     .colors   = colors,
                     .fades_ms = fades_ms,
@@ -533,6 +552,9 @@ int config_svc_callback(uint16_t conn_handle, uint16_t attr_handle,
                     .wait_ms      = pkt.wait_ms,
                     .center_speed = pkt.center_speed,
                 };
+                if (!light_round_cfg_is_valid(&cfg)) {
+                    return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
+                }
                 if (nvs_save_round_cfg(&cfg) != ESP_OK) {
                     return BLE_ATT_ERR_UNLIKELY;
                 }

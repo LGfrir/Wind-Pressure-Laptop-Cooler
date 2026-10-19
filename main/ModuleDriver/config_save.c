@@ -30,6 +30,7 @@
  */
 
 #include "ModuleDriver/config_save.h"
+#include "ModuleDriver/light_mode.h"
 #include "esp_log.h"
 #include <string.h>
 
@@ -78,8 +79,7 @@ typedef struct {
 
 /*
  * 灯光总配置只存 mode 和 brightness。
- * update_period 是【时序参数】(fade_steps = switch_ms / update_period)，
- * 不是用户配置 —— 存坏了整个灯效的节奏都会乱，所以不入库。
+ * update_period 由运行时接口限制为合法档位，这里沿用不持久化的约定。
  */
 typedef struct {
     uint8_t mode;
@@ -165,16 +165,18 @@ static esp_err_t cfg_get_blob(const char *ns, const char *key,
         return rc;
     }
 
-    size_t got = len;                       /* 进去是"缓冲区多大"，出来是"实际读到多少" */
-    rc = nvs_get_blob(h, key, data, &got);
-    nvs_close(h);
-
+    /* 先检查格式，避免短数据先覆盖默认值、随后才报告长度不符。 */
+    size_t got = 0;
+    rc = nvs_get_blob(h, key, NULL, &got);
     if (rc == ESP_OK && got != len) {
         ESP_LOGW(TAG, "%s/%s 长度不符（存的 %u / 期望 %u），当作没存过",
                  ns, key, (unsigned)got, (unsigned)len);
         rc = ESP_ERR_NVS_NOT_FOUND;
     }
-
+    if (rc == ESP_OK) {
+        rc = nvs_get_blob(h, key, data, &got);
+    }
+    nvs_close(h);
     return rc;
 }
 
@@ -215,7 +217,7 @@ esp_err_t nvs_get_fan_cfg(void)
 
 esp_err_t nvs_save_light_cfg(const light_t *cfg)
 {
-    if (cfg == NULL) {
+    if (cfg == NULL || (unsigned)cfg->mode > LIGHT_MODE_ROUND) {
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -238,6 +240,9 @@ esp_err_t nvs_get_light_cfg(light_t *cfg)
         return rc;                          /* 保持调用方的默认值不动 */
     }
 
+    if (s.mode > LIGHT_MODE_ROUND) {
+        return ESP_ERR_INVALID_ARG;
+    }
     /* 只写回这两个字段 —— update_period 由 light_init() 决定，这里不碰 */
     cfg->mode       = (light_mode_t)s.mode;
     cfg->brightness = s.brightness;
@@ -251,7 +256,7 @@ esp_err_t nvs_get_light_cfg(light_t *cfg)
 
 esp_err_t nvs_save_rainbow_cfg(const rainbow_cfg_t *cfg)
 {
-    if (cfg == NULL) {
+    if (cfg == NULL || cfg->switch_ms == 0) {
         return ESP_ERR_INVALID_ARG;
     }
     return cfg_set_blob(NS_LIGHT, KEY_RAINBOW, cfg, sizeof(*cfg));
@@ -262,7 +267,16 @@ esp_err_t nvs_get_rainbow_cfg(rainbow_cfg_t *cfg)
     if (cfg == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
-    return cfg_get_blob(NS_LIGHT, KEY_RAINBOW, cfg, sizeof(*cfg));
+    rainbow_cfg_t saved;
+    esp_err_t rc = cfg_get_blob(NS_LIGHT, KEY_RAINBOW, &saved, sizeof(saved));
+    if (rc != ESP_OK) {
+        return rc;
+    }
+    if (saved.switch_ms == 0) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    *cfg = saved;
+    return ESP_OK;
 }
 
 esp_err_t nvs_save_static_cfg(const color_t *cfg)
@@ -283,7 +297,7 @@ esp_err_t nvs_get_static_cfg(color_t *cfg)
 
 esp_err_t nvs_save_breath_cfg(const breath_cfg_t *cfg)
 {
-    if (cfg == NULL) {
+    if (cfg == NULL || cfg->switch_ms == 0) {
         return ESP_ERR_INVALID_ARG;
     }
     return cfg_set_blob(NS_LIGHT, KEY_BREATH, cfg, sizeof(*cfg));
@@ -294,7 +308,16 @@ esp_err_t nvs_get_breath_cfg(breath_cfg_t *cfg)
     if (cfg == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
-    return cfg_get_blob(NS_LIGHT, KEY_BREATH, cfg, sizeof(*cfg));
+    breath_cfg_t saved;
+    esp_err_t rc = cfg_get_blob(NS_LIGHT, KEY_BREATH, &saved, sizeof(saved));
+    if (rc != ESP_OK) {
+        return rc;
+    }
+    if (saved.switch_ms == 0) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    *cfg = saved;
+    return ESP_OK;
 }
 
 esp_err_t nvs_save_random_cfg(const random_cfg_t *cfg)
@@ -315,7 +338,7 @@ esp_err_t nvs_get_random_cfg(random_cfg_t *cfg)
 
 esp_err_t nvs_save_round_cfg(const round_cfg_t *cfg)
 {
-    if (cfg == NULL) {
+    if (!light_round_cfg_is_valid(cfg)) {
         return ESP_ERR_INVALID_ARG;
     }
     return cfg_set_blob(NS_LIGHT, KEY_ROUND, cfg, sizeof(*cfg));
@@ -326,7 +349,16 @@ esp_err_t nvs_get_round_cfg(round_cfg_t *cfg)
     if (cfg == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
-    return cfg_get_blob(NS_LIGHT, KEY_ROUND, cfg, sizeof(*cfg));
+    round_cfg_t saved;
+    esp_err_t rc = cfg_get_blob(NS_LIGHT, KEY_ROUND, &saved, sizeof(saved));
+    if (rc != ESP_OK) {
+        return rc;
+    }
+    if (!light_round_cfg_is_valid(&saved)) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    *cfg = saved;
+    return ESP_OK;
 }
 
 /* ============================================================
@@ -341,7 +373,7 @@ esp_err_t nvs_get_round_cfg(round_cfg_t *cfg)
 
 esp_err_t nvs_save_blink_cfg(const blink_cfg_t *cfg)
 {
-    if (cfg == NULL || cfg->colors == NULL) {
+    if (cfg == NULL || cfg->colors == NULL || cfg->period == 0) {
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -366,6 +398,9 @@ esp_err_t nvs_get_blink_cfg(blink_cfg_t *cfg)
         return rc;
     }
 
+    if (s.size != BLINK_COLOR_COUNT || s.period == 0) {
+        return ESP_ERR_INVALID_ARG;
+    }
     memcpy(s_blink_colors, s.colors, sizeof(color_t) * BLINK_COLOR_COUNT);
 
     cfg->colors = s_blink_colors;           /* ← 指向本文件的缓冲区 */
@@ -423,6 +458,11 @@ esp_err_t nvs_save_custom_breath_cfg(const custom_breath_cfg_t *cfg)
     }
 
     cbreath_store_t s = { .size = cfg->size };
+    for (int i = 0; i < cfg->size; i++) {
+        if (cfg->fades_ms[i] == 0) {
+            return ESP_ERR_INVALID_ARG;
+        }
+    }
     memcpy(s.colors,   cfg->colors,   sizeof(color_t)  * cfg->size);
     memcpy(s.fades_ms, cfg->fades_ms, sizeof(uint16_t) * cfg->size);
 
@@ -446,6 +486,11 @@ esp_err_t nvs_get_custom_breath_cfg(custom_breath_cfg_t *cfg)
         return ESP_ERR_INVALID_SIZE;
     }
 
+    for (int i = 0; i < s.size; i++) {
+        if (s.fades_ms[i] == 0) {
+            return ESP_ERR_INVALID_ARG;
+        }
+    }
     memcpy(s_cbreath_colors, s.colors,   sizeof(color_t)  * s.size);
     memcpy(s_cbreath_fades,  s.fades_ms, sizeof(uint16_t) * s.size);
 

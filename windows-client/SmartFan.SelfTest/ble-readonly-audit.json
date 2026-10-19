@@ -1,0 +1,181 @@
+{
+  "Timestamp": "2026-10-16T16:32:01.7662989+08:00",
+  "Device": {
+    "Id": "BluetoothLE#BluetoothLEe0:e2:58:fe:21:d4-84:c7:bb:56:6a:16",
+    "BluetoothAddress": 145993376360982,
+    "Name": "\u8FDE\u4E0A\u5C39\u6D69\u8363jj\u65AD\u4E24\u6839",
+    "SignalStrength": 0,
+    "IsPaired": false,
+    "AdvertisesFanService": false,
+    "Address": "84:C7:BB:56:6A:16"
+  },
+  "MaxPduSize": 256,
+  "Mode": "ReadOnlyAuditUnlessExplicitWrite",
+  "NotificationSeconds": 10,
+  "ValidNotifications": 10,
+  "PhysicalHardwareVerified": false,
+  "Checks": [
+    {
+      "Name": "fan_mode",
+      "Status": "Failed",
+      "Message": "fan_mode \u8FD4\u56DE\u4E86\u65E0\u6548\u8F7D\u8377\uFF1A06000000\u3002\u98CE\u6247\u6A21\u5F0F\u5FC5\u987B\u4E3A 0\u30011 \u6216 2\u3002 (Parameter \u0027payload\u0027)",
+      "PayloadHex": "\u2014"
+    },
+    {
+      "Name": "fan_pwm",
+      "Status": "KnownFirmwareLimitation",
+      "Message": "\u8BFB\u53D6\u6210\u529F\uFF1B\u56FA\u4EF6\u5F53\u524D\u6052\u8FD4\u56DE 0\uFF0C\u4E0D\u80FD\u8BC1\u660E\u5B9E\u9645 PWM\u3002",
+      "PayloadHex": "00"
+    },
+    {
+      "Name": "fan_rpm",
+      "Status": "KnownFirmwareLimitation",
+      "Message": "\u56FA\u4EF6\u672A\u63D0\u4F9B READ\uFF1B\u8FDE\u63A5\u65F6\u5DF2\u6821\u9A8C NOTIFY/WRITE \u5E76\u8BA2\u9605\u3002\u8BF7\u5728 RPM \u5386\u53F2\u4E2D\u786E\u8BA4\u901A\u77E5\uFF1B\u5199\u5165\u503C\u4EE3\u8868\u76EE\u6807\u8F6C\u901F\u3002",
+      "PayloadHex": "\u2014"
+    },
+    {
+      "Name": "light_mode",
+      "Status": "Passed",
+      "Message": "\u8BFB\u53D6 4 \u5B57\u8282\uFF0C\u957F\u5EA6\u4E0E\u53D6\u503C\u6821\u9A8C\u901A\u8FC7\uFF1B\u672A\u8FDB\u884C\u5199\u5165\u6216\u7269\u7406\u6548\u679C\u9A8C\u6536\u3002",
+      "PayloadHex": "06000000"
+    },
+    {
+      "Name": "light_update_per",
+      "Status": "Passed",
+      "Message": "\u8BFB\u53D6 1 \u5B57\u8282\uFF0C\u957F\u5EA6\u4E0E\u53D6\u503C\u6821\u9A8C\u901A\u8FC7\uFF1B\u672A\u8FDB\u884C\u5199\u5165\u6216\u7269\u7406\u6548\u679C\u9A8C\u6536\u3002",
+      "PayloadHex": "0A"
+    },
+    {
+      "Name": "light_brightness",
+      "Status": "Passed",
+      "Message": "\u8BFB\u53D6 1 \u5B57\u8282\uFF0C\u957F\u5EA6\u4E0E\u53D6\u503C\u6821\u9A8C\u901A\u8FC7\uFF1B\u672A\u8FDB\u884C\u5199\u5165\u6216\u7269\u7406\u6548\u679C\u9A8C\u6536\u3002",
+      "PayloadHex": "FF"
+    },
+    {
+      "Name": "cfg_lt_static",
+      "Status": "Passed",
+      "Message": "\u8BFB\u53D6 3 \u5B57\u8282\uFF0C\u957F\u5EA6\u4E0E\u53D6\u503C\u6821\u9A8C\u901A\u8FC7\uFF1B\u672A\u8FDB\u884C\u5199\u5165\u6216\u7269\u7406\u6548\u679C\u9A8C\u6536\u3002",
+      "PayloadHex": "000000"
+    },
+    {
+      "Name": "cfg_lt_rainbow",
+      "Status": "Failed",
+      "Message": "cfg_lt_rainbow \u8FD4\u56DE\u4E86\u65E0\u6548\u8F7D\u8377\uFF1A0000\u3002\u6E10\u53D8 / \u95EA\u70C1\u65F6\u957F\u5FC5\u987B\u5728 1..65535 ms\u3002 (Parameter \u0027payload\u0027)",
+      "PayloadHex": "\u2014"
+    },
+    {
+      "Name": "cfg_lt_breath",
+      "Status": "Passed",
+      "Message": "\u8BFB\u53D6 5 \u5B57\u8282\uFF0C\u957F\u5EA6\u4E0E\u53D6\u503C\u6821\u9A8C\u901A\u8FC7\uFF1B\u672A\u8FDB\u884C\u5199\u5165\u6216\u7269\u7406\u6548\u679C\u9A8C\u6536\u3002",
+      "PayloadHex": "E80393FF00"
+    },
+    {
+      "Name": "cfg_lt_randflash",
+      "Status": "Passed",
+      "Message": "\u8BFB\u53D6 1 \u5B57\u8282\uFF0C\u957F\u5EA6\u4E0E\u53D6\u503C\u6821\u9A8C\u901A\u8FC7\uFF1B\u672A\u8FDB\u884C\u5199\u5165\u6216\u7269\u7406\u6548\u679C\u9A8C\u6536\u3002",
+      "PayloadHex": "00"
+    },
+    {
+      "Name": "cfg_lt_blink",
+      "Status": "Failed",
+      "Message": "\u8BFB\u53D6 cfg_lt_blink \u5931\u8D25\uFF1AProtocolError\uFF0CATT 0x0E\u3002\u8BF7\u68C0\u67E5\u56FA\u4EF6\u63A5\u53E3\u3001\u8BBE\u5907\u7535\u6E90\u53CA Windows \u914D\u5BF9\u7F13\u5B58\u3002",
+      "PayloadHex": "\u2014"
+    },
+    {
+      "Name": "cfg_lt_custbreath",
+      "Status": "Passed",
+      "Message": "\u8BFB\u53D6 46 \u5B57\u8282\uFF0C\u957F\u5EA6\u4E0E\u53D6\u503C\u6821\u9A8C\u901A\u8FC7\uFF1B\u672A\u8FDB\u884C\u5199\u5165\u6216\u7269\u7406\u6548\u679C\u9A8C\u6536\u3002",
+      "PayloadHex": "09FFA07AFFFACD00FA9A00FFFF00BFFF7B68EEEE82EE8A2BE2FFB6C1F401F401F401F401F401F401F401F401F401"
+    },
+    {
+      "Name": "cfg_lt_chase",
+      "Status": "Failed",
+      "Message": "\u8BFB\u53D6 cfg_lt_chase \u5931\u8D25\uFF1AProtocolError\uFF0CATT 0x0E\u3002\u8BF7\u68C0\u67E5\u56FA\u4EF6\u63A5\u53E3\u3001\u8BBE\u5907\u7535\u6E90\u53CA Windows \u914D\u5BF9\u7F13\u5B58\u3002",
+      "PayloadHex": "\u2014"
+    },
+    {
+      "Name": "cfg_lt_round",
+      "Status": "Failed",
+      "Message": "cfg_lt_round \u8FD4\u56DE\u4E86\u65E0\u6548\u8F7D\u8377\uFF1A00000000000000000000000000000000000000000000\u3002\u73AF\u7ED5\u626B\u63CF\u8981\u6C42\u6709\u9650\u6570\u503C\u3001\u8303\u56F4 \u003E 0\u30010 \u2264 \u4E3B\u8272\u8303\u56F4 \u2264 \u8303\u56F4\u3001\u7B49\u5F85\u548C\u901F\u5EA6 \u2265 0\u3002 (Parameter \u0027payload\u0027)",
+      "PayloadHex": "\u2014"
+    },
+    {
+      "Name": "laptop_cpu_usage",
+      "Status": "Passed",
+      "Message": "\u8BFB\u53D6 8 \u5B57\u8282\uFF0C\u957F\u5EA6\u4E0E\u53D6\u503C\u6821\u9A8C\u901A\u8FC7\uFF1B\u672A\u8FDB\u884C\u5199\u5165\u6216\u7269\u7406\u6548\u679C\u9A8C\u6536\u3002",
+      "PayloadHex": "0000000000000000"
+    },
+    {
+      "Name": "laptop_cpu_temp",
+      "Status": "Passed",
+      "Message": "\u8BFB\u53D6 8 \u5B57\u8282\uFF0C\u957F\u5EA6\u4E0E\u53D6\u503C\u6821\u9A8C\u901A\u8FC7\uFF1B\u672A\u8FDB\u884C\u5199\u5165\u6216\u7269\u7406\u6548\u679C\u9A8C\u6536\u3002",
+      "PayloadHex": "0000000000000000"
+    },
+    {
+      "Name": "laptop_cpu_volta",
+      "Status": "Passed",
+      "Message": "\u8BFB\u53D6 8 \u5B57\u8282\uFF0C\u957F\u5EA6\u4E0E\u53D6\u503C\u6821\u9A8C\u901A\u8FC7\uFF1B\u672A\u8FDB\u884C\u5199\u5165\u6216\u7269\u7406\u6548\u679C\u9A8C\u6536\u3002",
+      "PayloadHex": "0000000000000000"
+    },
+    {
+      "Name": "laptop_cpu_clock",
+      "Status": "Passed",
+      "Message": "\u8BFB\u53D6 8 \u5B57\u8282\uFF0C\u957F\u5EA6\u4E0E\u53D6\u503C\u6821\u9A8C\u901A\u8FC7\uFF1B\u672A\u8FDB\u884C\u5199\u5165\u6216\u7269\u7406\u6548\u679C\u9A8C\u6536\u3002",
+      "PayloadHex": "0000000000000000"
+    },
+    {
+      "Name": "laptop_gpu_usage",
+      "Status": "Passed",
+      "Message": "\u8BFB\u53D6 8 \u5B57\u8282\uFF0C\u957F\u5EA6\u4E0E\u53D6\u503C\u6821\u9A8C\u901A\u8FC7\uFF1B\u672A\u8FDB\u884C\u5199\u5165\u6216\u7269\u7406\u6548\u679C\u9A8C\u6536\u3002",
+      "PayloadHex": "0000000000000000"
+    },
+    {
+      "Name": "laptop_gpu_temp",
+      "Status": "Passed",
+      "Message": "\u8BFB\u53D6 8 \u5B57\u8282\uFF0C\u957F\u5EA6\u4E0E\u53D6\u503C\u6821\u9A8C\u901A\u8FC7\uFF1B\u672A\u8FDB\u884C\u5199\u5165\u6216\u7269\u7406\u6548\u679C\u9A8C\u6536\u3002",
+      "PayloadHex": "0000000000000000"
+    },
+    {
+      "Name": "laptop_gpu_clock",
+      "Status": "Passed",
+      "Message": "\u8BFB\u53D6 8 \u5B57\u8282\uFF0C\u957F\u5EA6\u4E0E\u53D6\u503C\u6821\u9A8C\u901A\u8FC7\uFF1B\u672A\u8FDB\u884C\u5199\u5165\u6216\u7269\u7406\u6548\u679C\u9A8C\u6536\u3002",
+      "PayloadHex": "0000000000000000"
+    },
+    {
+      "Name": "laptop_gpu_ram",
+      "Status": "Passed",
+      "Message": "\u8BFB\u53D6 8 \u5B57\u8282\uFF0C\u957F\u5EA6\u4E0E\u53D6\u503C\u6821\u9A8C\u901A\u8FC7\uFF1B\u672A\u8FDB\u884C\u5199\u5165\u6216\u7269\u7406\u6548\u679C\u9A8C\u6536\u3002",
+      "PayloadHex": "0000000000000000"
+    },
+    {
+      "Name": "laptop_gpu_tot_r",
+      "Status": "Passed",
+      "Message": "\u8BFB\u53D6 8 \u5B57\u8282\uFF0C\u957F\u5EA6\u4E0E\u53D6\u503C\u6821\u9A8C\u901A\u8FC7\uFF1B\u672A\u8FDB\u884C\u5199\u5165\u6216\u7269\u7406\u6548\u679C\u9A8C\u6536\u3002",
+      "PayloadHex": "0000000000000000"
+    },
+    {
+      "Name": "laptop_ram",
+      "Status": "Passed",
+      "Message": "\u8BFB\u53D6 8 \u5B57\u8282\uFF0C\u957F\u5EA6\u4E0E\u53D6\u503C\u6821\u9A8C\u901A\u8FC7\uFF1B\u672A\u8FDB\u884C\u5199\u5165\u6216\u7269\u7406\u6548\u679C\u9A8C\u6536\u3002",
+      "PayloadHex": "0000000000000000"
+    },
+    {
+      "Name": "laptop_tot_ram",
+      "Status": "Passed",
+      "Message": "\u8BFB\u53D6 8 \u5B57\u8282\uFF0C\u957F\u5EA6\u4E0E\u53D6\u503C\u6821\u9A8C\u901A\u8FC7\uFF1B\u672A\u8FDB\u884C\u5199\u5165\u6216\u7269\u7406\u6548\u679C\u9A8C\u6536\u3002",
+      "PayloadHex": "0000000000000000"
+    },
+    {
+      "Name": "laptop_fan_used",
+      "Status": "Passed",
+      "Message": "\u8BFB\u53D6 40 \u5B57\u8282\uFF0C\u957F\u5EA6\u4E0E\u53D6\u503C\u6821\u9A8C\u901A\u8FC7\uFF1B\u672A\u8FDB\u884C\u5199\u5165\u6216\u7269\u7406\u6548\u679C\u9A8C\u6536\u3002",
+      "PayloadHex": "00000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "Name": "laptop_fan_speed",
+      "Status": "Passed",
+      "Message": "\u8BFB\u53D6 40 \u5B57\u8282\uFF0C\u957F\u5EA6\u4E0E\u53D6\u503C\u6821\u9A8C\u901A\u8FC7\uFF1B\u672A\u8FDB\u884C\u5199\u5165\u6216\u7269\u7406\u6548\u679C\u9A8C\u6536\u3002",
+      "PayloadHex": "00000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ]
+}

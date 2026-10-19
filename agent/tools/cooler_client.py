@@ -17,6 +17,11 @@ import asyncio
 import struct
 import sys
 
+try:
+    from .light_protocol import validate_light_payload
+except ImportError:
+    from light_protocol import validate_light_payload
+
 from bleak import BleakClient, BleakScanner
 from bleak.backends.characteristic import BleakGATTCharacteristic
 
@@ -292,8 +297,9 @@ async def repl(client: BleakClient) -> None:
                 continue
             try:
                 payload = parse_hex(" ".join(rest[1:]))
-            except ValueError:
-                print("十六进制解析失败，例如: 64 / 00 64 / 6400")
+                validate_light_payload(uuid_name(getattr(target, "uuid", target)), payload)
+            except ValueError as exc:
+                print(f"写入参数无效: {exc}")
                 continue
             try:
                 await client.write_gatt_char(target, payload, response=True)

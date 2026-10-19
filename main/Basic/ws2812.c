@@ -151,15 +151,6 @@ void ws2812_fill(uint8_t r, uint8_t g, uint8_t b)
     }
 }
 
-void ws2812_brightness_update(uint8_t brightness)
-{
-    for (int i = 0; i < WS2812_PIXEL_COUNT; i++) {
-        s_pixels[i][0] = s_pixels[i][0] * brightness / 255;
-        s_pixels[i][1] = s_pixels[i][1] * brightness / 255;
-        s_pixels[i][2] = s_pixels[i][2] * brightness / 255;
-    }
-}
-
 void ws2812_clear(void)
 {
     memset(s_pixels, 0, sizeof(s_pixels));

@@ -23,14 +23,19 @@ round_cfg_t* light_get_round_cfg(void);
 uint8_t idx_next(int x);
 uint8_t idx_past(int x);
 
-/* 计算当前帧颜色并更新像素缓存，由灯光任务统一发送。 */
+/* NVS 初始化后加载默认配置和已保存配置；动画状态与配置分别管理。 */
+void light_modes_init(void);
+void light_mode_reset(light_mode_t mode);
+bool light_round_cfg_is_valid(const round_cfg_t* cfg);
+
+/* delta_ms 是本次累计的毫秒数；模式内部不等待、不发送。 */
 void light_static(void);
-void light_rainbow(void);
-void light_breathe(void);
+void light_rainbow(uint32_t delta_ms);
+void light_breathe(uint32_t delta_ms);
 void light_random_flash(void);
-void light_blink(void);
-void light_custom_breath(void);
-void light_chase(void);
-void light_round(void);
+void light_blink(uint32_t delta_ms);
+void light_custom_breath(uint32_t delta_ms);
+void light_chase(uint32_t delta_ms);
+void light_round(uint32_t delta_ms);
 
 #endif /* LIGHT_MODE_H */

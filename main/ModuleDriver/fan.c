@@ -72,8 +72,9 @@ void fan_speed_syncing_task() {
             fan_send_pwm(fan.speed_percentage);
         }
         else if(fan.mode == AUTO) {
+            static uint8_t tar_pwm = 0;
             double e = fan.rpm - fan.target_rpm;
-
+            fan_send_pwm((uint8_t)((double)tar_pwm - e));
         } else if(fan.mode == FULL_SPEED) {
             fan_send_pwm(100);
         }
@@ -98,6 +99,7 @@ void fan_rpm_update(void) {
 
     if (actual_us > 0) {
         fan.rpm = (uint32_t)(((uint64_t)delta_pulse * 60ULL * 1000000ULL) / (2ULL * (uint64_t)actual_us));
+
     }
     else {
         fan.rpm = 0;
@@ -176,3 +178,6 @@ fan_mode_t fan_get_mode(void) { return fan.mode; }
 
 uint8_t* fan_get_curve() { return fan.pwm_t_curve; }
 
+void fan_set_mode(fan_mode_t mode) {
+    fan.mode = mode;
+}

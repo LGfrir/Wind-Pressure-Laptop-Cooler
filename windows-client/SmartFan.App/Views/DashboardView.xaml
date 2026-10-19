@@ -1,0 +1,93 @@
+<UserControl x:Class="SmartFan.App.Views.DashboardView" x:Name="DashboardRoot" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Focusable="True" PreviewKeyDown="DashboardKeyDown">
+  <UserControl.Resources>
+    <Style x:Key="WorkspaceButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"><Setter Property="Padding" Value="12,6"/><Setter Property="FontSize" Value="11"/><Setter Property="Margin" Value="6,0,0,0"/><Setter Property="MinHeight" Value="32"/></Style>
+    <Style x:Key="WidgetDragHandle" TargetType="Thumb">
+      <Setter Property="Cursor" Value="SizeAll"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Thumb"><Border Background="Transparent" CornerRadius="20"/></ControlTemplate></Setter.Value></Setter>
+    </Style>
+    <Style x:Key="WidgetResizeHandle" TargetType="Thumb">
+      <Setter Property="Cursor" Value="SizeNWSE"/><Setter Property="Width" Value="26"/><Setter Property="Height" Value="26"/>
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Thumb"><Border CornerRadius="8" Background="{DynamicResource SelectionBrush}"><TextBlock Text="⌟" FontSize="22" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-6,0,0"/></Border></ControlTemplate></Setter.Value></Setter>
+    </Style>
+  </UserControl.Resources>
+  <Grid Margin="0,3,0,0">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <Grid Margin="0,0,0,8">
+      <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+        <Ellipse Width="6" Height="6" Fill="{DynamicResource AccentBrush}" Margin="4,0,8,0"/>
+        <TextBlock Text="{Binding ConnectionText}" FontSize="11" VerticalAlignment="Center"/>
+        <Button Content="连接与后台  ›" Click="OpenAdvanced" Style="{StaticResource WorkspaceButton}"/>
+      </StackPanel>
+      <Button x:Name="EditButton" Grid.Column="1" Content="编辑组件" Click="StartEditing" Style="{StaticResource WorkspaceButton}"/>
+    </Grid>
+    <Grid x:Name="Workspace" Grid.Row="1" SizeChanged="WorkspaceSizeChanged" Background="Transparent" ClipToBounds="True">
+      <Border x:Name="EditorScrim" Background="{DynamicResource BackgroundBrush}" Opacity="0.25" IsHitTestVisible="False" Visibility="Collapsed"/>
+      <Grid x:Name="BoardSurface" RenderTransformOrigin="0.5,0.5">
+        <Grid.RenderTransform><TransformGroup><ScaleTransform x:Name="BoardZoom" ScaleX="1" ScaleY="1"/><TranslateTransform x:Name="BoardShift"/></TransformGroup></Grid.RenderTransform>
+        <Border x:Name="EditorBoardBackdrop" Margin="1" CornerRadius="24" Background="{DynamicResource BackgroundBrush}" Opacity="0.4" IsHitTestVisible="False" Visibility="Collapsed"/>
+        <Canvas x:Name="GuideCanvas" IsHitTestVisible="False" Visibility="Collapsed"/>
+        <Canvas x:Name="DropCanvas" IsHitTestVisible="False">
+          <Border x:Name="AddPlacementPreview" Visibility="Collapsed" CornerRadius="20" BorderThickness="2" BorderBrush="{DynamicResource AccentBrush}" Background="{DynamicResource SelectionBrush}" Opacity="0.8"><TextBlock x:Name="AddPlacementLabel" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" Margin="10" FontSize="12" Foreground="{DynamicResource AccentBrush}"/></Border>
+          <Border x:Name="DropPreview" Visibility="Collapsed" CornerRadius="20" BorderThickness="2" BorderBrush="{DynamicResource AccentBrush}" Background="{DynamicResource SelectionBrush}" Opacity="0.6"/>
+        </Canvas>
+        <Canvas x:Name="WidgetCanvas"/>
+        <Canvas IsHitTestVisible="False"><Border x:Name="InvalidDropPreview" Visibility="Collapsed" CornerRadius="20" BorderThickness="3" BorderBrush="#D94F68" Background="#18D94F68"><TextBlock Text="此处放不下" Foreground="#D94F68" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="10"/></Border></Canvas>
+        <TextBlock x:Name="EmptyHint" Text="你的组件桌面还是空的&#x0a;点击“编辑组件”，添加想要的信息。" Visibility="Collapsed" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="{DynamicResource MutedBrush}" FontSize="14"/>
+        <Grid x:Name="EditorBoundary" Margin="1" IsHitTestVisible="False" Visibility="Collapsed">
+          <Border CornerRadius="24" BorderThickness="4" BorderBrush="{DynamicResource SelectionBrush}" Opacity="0.85"/>
+          <Border CornerRadius="24" BorderThickness="1.8" BorderBrush="{DynamicResource AccentBrush}" Opacity="0.9"/>
+        </Grid>
+      </Grid>
+      <Border x:Name="Inspector" VerticalAlignment="Bottom" HorizontalAlignment="Stretch" Margin="20,0,20,6" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="22" Padding="16,12" Visibility="Collapsed" SizeChanged="InspectorSizeChanged">
+        <Border.RenderTransform><TranslateTransform x:Name="DrawerShift"/></Border.RenderTransform>
+        <Border.Resources>
+          <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}"><Setter Property="MinHeight" Value="32"/><Setter Property="Padding" Value="9,5"/><Setter Property="FontSize" Value="11"/><Setter Property="VerticalAlignment" Value="Center"/><EventSetter Event="Loaded" Handler="EditorPickerLoaded"/></Style>
+        </Border.Resources>
+        <Grid>
+          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+          <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="6"/><ColumnDefinition Width="125"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="65"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="65"/><ColumnDefinition Width="96"/><ColumnDefinition Width="Auto"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <Button x:Name="GalleryButton" Content="组件库 ⌃" Click="ToggleGallery" Style="{StaticResource WorkspaceButton}" Margin="0" Padding="8,6" ToolTip="预览组件，选择常用尺寸与实际放置位置"/>
+            <ComboBox x:Name="AddPicker" Grid.Column="2" SelectionChanged="AddKindChanged" DisplayMemberPath="Value" SelectedValuePath="Key" MinWidth="0" ToolTip="选择要添加的组件；CPU/GPU 可选温度与使用率组合"/>
+            <TextBlock Grid.Column="3" Text="宽" FontSize="10" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="8,0,4,0"/>
+            <ComboBox x:Name="AddWidthPicker" Grid.Column="4" SelectionChanged="AddDimensionsChanged" MinWidth="0" ToolTip="添加前设置宽度（格）"/>
+            <TextBlock Grid.Column="5" Text="高" FontSize="10" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="8,0,4,0"/>
+            <ComboBox x:Name="AddHeightPicker" Grid.Column="6" SelectionChanged="AddDimensionsChanged" MinWidth="0" ToolTip="添加前设置高度（格）"/>
+            <ComboBox x:Name="AddRatioPicker" Grid.Column="7" SelectionChanged="AddRatioChanged" DisplayMemberPath="Value" SelectedValuePath="Key" Margin="6,0,0,0" MinWidth="0" ToolTip="添加前设置比例"/>
+            <Button x:Name="AddButton" Grid.Column="8" Content="＋ 添加" Click="AddWidget" Style="{StaticResource WorkspaceButton}" Padding="10,6"/>
+            <StackPanel Grid.Column="9" VerticalAlignment="Center" Margin="8,0,4,0"><TextBlock x:Name="AddFitStatus" Foreground="{DynamicResource MutedBrush}" FontSize="10" TextTrimming="CharacterEllipsis"/><TextBlock x:Name="AddRecommendation" FontSize="10" Foreground="{DynamicResource AccentBrush}" TextTrimming="CharacterEllipsis" Cursor="Hand" Visibility="Collapsed" MouseLeftButtonDown="ApplyRecommendedSize"/></StackPanel>
+            <StackPanel x:Name="EditActions" Grid.Column="10" Orientation="Horizontal">
+              <Button x:Name="UndoButton" Content="↶" Click="UndoEditing" Style="{StaticResource WorkspaceButton}" Padding="4,6" Margin="3,0,0,0" ToolTip="撤销（Ctrl + Z）"/>
+              <Button x:Name="RedoButton" Content="↷" Click="RedoEditing" Style="{StaticResource WorkspaceButton}" Padding="4,6" Margin="3,0,0,0" ToolTip="重做（Ctrl + Y）"/>
+              <Button Content="重置" Click="ResetLayout" Style="{StaticResource WorkspaceButton}" ToolTip="恢复推荐布局，可撤销"/>
+              <Button Content="取消" Click="CancelEditing" Style="{StaticResource WorkspaceButton}"/>
+              <Button x:Name="DoneButton" Content="完成" Click="FinishEditing" Style="{StaticResource PrimaryButton}" Padding="12,6" FontSize="11" Margin="6,0,0,0" ToolTip="保存组件布局并结束编辑"/>
+            </StackPanel>
+          </Grid>
+          <Grid Grid.Row="1" x:Name="SelectedInspector" Margin="0,10,0,0">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="1.1*"/><ColumnDefinition Width="1.3*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="65"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="65"/><ColumnDefinition Width="1.4*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <ComboBox x:Name="WidgetKindPicker" SelectionChanged="WidgetKindChanged" DisplayMemberPath="Value" SelectedValuePath="Key" Margin="0,0,12,0" MinWidth="0" ToolTip="替换当前组件内容，保留位置与合适的尺寸"/>
+            <ComboBox x:Name="DisplayPicker" Grid.Column="1" SelectionChanged="DisplayChanged" DisplayMemberPath="Value" SelectedValuePath="Key" MinWidth="0" ToolTip="显示方式"/>
+            <TextBlock Grid.Column="2" Text="宽" FontSize="10" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="12,0,6,0"/>
+            <ComboBox x:Name="WidthPicker" Grid.Column="3" SelectionChanged="DimensionsChanged" MinWidth="0" ToolTip="宽度（格）"/>
+            <TextBlock Grid.Column="4" Text="高" FontSize="10" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="10,0,6,0"/>
+            <ComboBox x:Name="HeightPicker" Grid.Column="5" SelectionChanged="DimensionsChanged" MinWidth="0" ToolTip="高度（格）"/>
+            <ComboBox x:Name="RatioPicker" Grid.Column="6" SelectionChanged="RatioChanged" DisplayMemberPath="Value" SelectedValuePath="Key" Margin="12,0,0,0" MinWidth="0" ToolTip="锁定宽高比"/>
+            <Button Grid.Column="7" Content="移除组件" Click="RemoveSelected" Style="{StaticResource WorkspaceButton}" Margin="12,0,0,0"/>
+          </Grid>
+        </Grid>
+      </Border>
+      <Popup x:Name="WidgetGallery" PlacementTarget="{Binding ElementName=GalleryButton}" Placement="Top" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Slide" Closed="GalleryClosed">
+        <Border Width="640" MaxHeight="360" Margin="2,2,2,10" Padding="16" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="22">
+          <Grid>
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition/></Grid.RowDefinitions>
+            <StackPanel Margin="0,0,0,10"><TextBlock Text="选择你的组件" FontSize="15" FontWeight="{DynamicResource UiHeadingWeight}"/><TextBlock Text="选择后可在下方调整尺寸；桌面会预览实际放置位置。" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,0"/></StackPanel>
+            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10"><TextBlock Text="当前组件尺寸" FontSize="11" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center"/><Button Content="紧凑" Tag="compact" Click="ChooseSizePreset" Style="{StaticResource WorkspaceButton}"/><Button Content="标准" Tag="standard" Click="ChooseSizePreset" Style="{StaticResource WorkspaceButton}"/><Button Content="横向" Tag="wide" Click="ChooseSizePreset" Style="{StaticResource WorkspaceButton}"/></StackPanel>
+            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="False"><WrapPanel x:Name="GalleryItems"/></ScrollViewer>
+          </Grid>
+        </Border>
+      </Popup>
+    </Grid>
+    <TextBlock x:Name="WorkspaceStatus" Grid.Row="2" Text="" Foreground="{DynamicResource MutedBrush}" FontSize="10" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Margin="4,5,4,0"/>
+  </Grid>
+</UserControl>

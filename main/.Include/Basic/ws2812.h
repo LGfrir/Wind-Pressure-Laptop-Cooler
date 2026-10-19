@@ -19,9 +19,6 @@ void ws2812_init(void);
 void ws2812_set_pixel(uint8_t index, uint8_t r, uint8_t g, uint8_t b);
 void ws2812_fill(uint8_t r, uint8_t g, uint8_t b);
 
-/* 按 0-255 的亮度比例缩放当前缓存；此操作会直接修改缓存。 */
-void ws2812_brightness_update(uint8_t brightness);
-
 /* 清空缓存；调用 ws2812_show() 后才会更新灯珠。 */
 void ws2812_clear(void);
 void ws2812_show(void);

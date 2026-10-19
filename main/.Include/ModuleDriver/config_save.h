@@ -7,7 +7,7 @@
  *
  * 用法:
  *   开机:  nvs_flash_init() 之后,逐个调 nvs_get_xxx_cfg(&cfg)
- *          返回值 != ESP_OK 就表示"没存过 / 格式变了",保持默认值即可。
+ *          读取失败、格式不符或参数无效时保留默认值。
  *   改动:  用户点了"确认"再调 nvs_save_xxx_cfg(&cfg)。
  *
  * ⚠️ 不要在"转旋钮 / 拖动条"的过程中存 —— NVS 是 flash,有擦写寿命。
@@ -37,7 +37,7 @@ esp_err_t nvs_save_fan_cfg(void);
 esp_err_t nvs_get_fan_cfg(void);
 
 /* ============================================================
- *  灯光总配置（模式、亮度、刷新周期）
+ *  灯光总配置（模式、亮度；刷新周期只在运行时修改）
  * ============================================================ */
 esp_err_t nvs_save_light_cfg(const light_t *cfg);
 esp_err_t nvs_get_light_cfg(light_t *cfg);

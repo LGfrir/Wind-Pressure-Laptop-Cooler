@@ -29,6 +29,7 @@ void fan_init(void);
 void fan_send_pwm(uint8_t percentage);
 void fan_set_speed(uint8_t speed);
 void fan_set_target_rpm(uint32_t target_rpm);
+void fan_set_mode(fan_mode_t mode);
 
 uint32_t fan_get_rpm(void);
 fan_mode_t fan_get_mode(void);

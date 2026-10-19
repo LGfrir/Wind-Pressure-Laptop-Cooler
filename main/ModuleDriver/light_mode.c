@@ -4,500 +4,389 @@
  * @date 2026-04-28
  * @brief ARGB 风扇灯效模式与配置
  *
- * 负责各灯效的颜色计算，通过灯光执行接口更新像素缓存。
+ * 每次调用只推进一帧；动画以毫秒计时，统一由灯光任务调度和发送。
  */
 
 #include "ModuleDriver/light_mode.h"
 #include "ModuleDriver/config_save.h"
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "esp_random.h"
 
 #include <math.h>
-#include <string.h>
+#include <stddef.h>
 
-breath_cfg_t s_breath_cfg;
+#define CHASE_FADE_MS 1000U
+#define CHASE_START_INTERVAL_MS 100U
 
-/*
- * @brief 获取下一个灯珠索引。
- */
+typedef struct {
+    uint8_t current;
+    uint32_t elapsed_ms;
+} fade_state_t;
+
+static rainbow_cfg_t s_rainbow_eff;
+static breath_cfg_t s_breath_cfg;
+static random_cfg_t s_random_cfg;
+static blink_cfg_t s_blink_cfg;
+static custom_breath_cfg_t s_custom_breath_cfg;
+static chase_cfg_t s_chase_cfg;
+static round_cfg_t s_round_cfg;
+static color_t s_static_cfg;
+static bool s_modes_inited;
+
+static fade_state_t s_rainbow_state;
+static fade_state_t s_breath_state;
+static fade_state_t s_custom_state;
+static fade_state_t s_chase_state;
+static uint32_t s_blink_elapsed_ms;
+static uint8_t s_blink_color = 1;
+static bool s_random_on;
+static float s_round_pos;
+
 uint8_t idx_next(int x) {
     return (x + 1) % LIGHT_PIXEL_COUNT;
 }
 
-/*
- * @brief 获取上一个灯珠索引。
- */
 uint8_t idx_past(int x) {
     return (x - 1) < 0 ? LIGHT_PIXEL_COUNT - 1 : x - 1;
 }
 
-/* ========================= 灯效模式 ========================= */
-
-/*
- * @brief 彩虹渐变灯效配置对象。
- */
-rainbow_cfg_t s_rainbow_eff;
-bool s_rainbow_init;
-
-/*
- * @brief 获取彩虹灯效配置。
- */
-rainbow_cfg_t* light_rainbow_get_cfg(void) {
-    return &s_rainbow_eff;
+bool light_round_cfg_is_valid(const round_cfg_t* cfg) {
+    return cfg != NULL &&
+           isfinite(cfg->range) && cfg->range > 0.0f &&
+           isfinite(cfg->range_main) && cfg->range_main >= 0.0f &&
+           cfg->range_main <= cfg->range &&
+           cfg->wait_ms >= 0 &&
+           isfinite(cfg->center_speed) && cfg->center_speed >= 0.0f;
 }
 
 /*
- * @brief 生成彩虹渐变灯效。
+ * @brief 先建立默认值，再加载通过校验的 NVS 配置。
  */
-void light_rainbow(void) {
-    // init
-    if(!s_rainbow_init) {
-        s_rainbow_init = 1;
-
-        /* 优先用 NVS 里存的；读不到（首次开机 / 格式变了）才落到默认值 */
-        if (nvs_get_rainbow_cfg(&s_rainbow_eff) != ESP_OK) {
-            s_rainbow_eff.switch_ms = 1000;
-        }
+void light_modes_init(void) {
+    if (s_modes_inited) {
+        return;
     }
-    // custom config
-    const int fade_steps = s_rainbow_eff.switch_ms / s_light.update_period;
 
-    static const color_t colors[] = {
-        {255,   0,   0},
-        {  0, 255,   0},
-        {  0,   0, 255},
+    static color_t blink_colors[] = {
+        {147, 255, 255}, {0, 0, 0},
     };
-    const int color_count = sizeof(colors) / sizeof(colors[0]);
-
-
-    static int current = 0;
-    static int next = 1;
-    static int step = 0;
-
-    const color_t c0 = colors[current];
-    const color_t c1 = colors[next];
-
-
-    uint8_t r = (uint8_t)(c0.r + ((int)(c1.r - c0.r) * step) / fade_steps);
-    uint8_t g = (uint8_t)(c0.g + ((int)(c1.g - c0.g) * step) / fade_steps);
-    uint8_t b = (uint8_t)(c0.b + ((int)(c1.b - c0.b) * step) / fade_steps);
-
-    light_fill(r, g, b);
-
-    step++;
-    if (step > fade_steps) {
-        step = 0;
-        current = next;
-        next = (next + 1) % color_count;
-    }
-
-}
-
-/*
- * @brief 呼吸灯效配置对象。
- */
-bool s_breath_init;
-
-/*
- * @brief 获取呼吸灯效配置。
- */
-breath_cfg_t* light_get_breath_cfg(void) {
-    return &s_breath_cfg;
-}
-
-/*
- * @brief 生成呼吸渐变灯效。
- */
-void light_breathe(void) {
-    if(!s_breath_init) {
-        s_breath_init = true;
-
-        if (nvs_get_breath_cfg(&s_breath_cfg) != ESP_OK) {
-            s_breath_cfg.switch_ms = 1000;
-            s_breath_cfg.color.r = 147;
-            s_breath_cfg.color.g = 255;
-            s_breath_cfg.color.b = 0;
-        }
-    }
-
-    const int fade_steps = s_breath_cfg.switch_ms / s_light.update_period;
-
-
-    color_t colors[] = {
-        {  0,   0,   0},
-        {  0,   0,   0},
+    static color_t chase_colors[] = {
+        {255, 52, 241}, {12, 13, 255}, {255, 52, 241}, {255, 52, 241},
     };
-    colors[0] = s_breath_cfg.color;
+    static color_t breath_colors[] = {
+        {255, 160, 122}, {255, 250, 205}, {0, 250, 154},
+        {0, 255, 255}, {0, 191, 255}, {123, 104, 238},
+        {238, 130, 238}, {138, 43, 226}, {255, 182, 193},
+    };
+    static uint16_t breath_fades_ms[] = {
+        500, 500, 500, 500, 500, 500, 500, 500, 500,
+    };
 
-    const int color_count = sizeof(colors) / sizeof(colors[0]);
+    s_static_cfg = (color_t){255, 255, 0};
+    s_rainbow_eff = (rainbow_cfg_t){.switch_ms = 1000};
+    s_breath_cfg = (breath_cfg_t){
+        .switch_ms = 1000, .color = {147, 255, 0},
+    };
+    s_random_cfg = (random_cfg_t){.mode = false};
+    s_blink_cfg = (blink_cfg_t){.colors = blink_colors, .period = 500};
+    s_chase_cfg = (chase_cfg_t){
+        .colors = chase_colors,
+        .size = sizeof(chase_colors) / sizeof(chase_colors[0]),
+    };
+    s_custom_breath_cfg = (custom_breath_cfg_t){
+        .colors = breath_colors,
+        .fades_ms = breath_fades_ms,
+        .size = sizeof(breath_colors) / sizeof(breath_colors[0]),
+    };
+    s_round_cfg = (round_cfg_t){
+        .color_main = {255, 52, 241},
+        .color_sub = {12, 13, 255},
+        .range = 5.0f,
+        .range_main = 1.0f,
+        .wait_ms = 2000,
+        .center_speed = 1.0f,
+    };
 
-    static int current = 0;
-    static int next = 1;
-    static int step = 0;
-
-    const color_t c0 = colors[current];
-    const color_t c1 = colors[next];
-
-    uint8_t r = (uint8_t)(c0.r + ((int)(c1.r - c0.r) * step) / fade_steps);
-    uint8_t g = (uint8_t)(c0.g + ((int)(c1.g - c0.g) * step) / fade_steps);
-    uint8_t b = (uint8_t)(c0.b + ((int)(c1.b - c0.b) * step) / fade_steps);
-
-    light_fill(r, g, b);
-
-    step++;
-    if (step > fade_steps) {
-        step = 0;
-        current = next;
-        next = (next + 1) % color_count;
-    }
-
+    nvs_get_static_cfg(&s_static_cfg);
+    nvs_get_rainbow_cfg(&s_rainbow_eff);
+    nvs_get_breath_cfg(&s_breath_cfg);
+    nvs_get_random_cfg(&s_random_cfg);
+    nvs_get_blink_cfg(&s_blink_cfg);
+    nvs_get_chase_cfg(&s_chase_cfg);
+    nvs_get_custom_breath_cfg(&s_custom_breath_cfg);
+    nvs_get_round_cfg(&s_round_cfg);
+    s_round_pos = -s_round_cfg.range;
+    s_modes_inited = true;
 }
 
-/*
- * @brief 随机闪烁灯效配置对象。
- */
-bool s_random_flash_init;
-random_cfg_t s_random_cfg;
-
-/*
- * @brief 获取随机闪烁灯效配置。
- */
-random_cfg_t* light_get_random_cfg(void) {
-    return &s_random_cfg;
-}
-
-/*
- * @brief 生成随机闪烁灯效。
- */
-void light_random_flash(void) {
-    if(!s_random_flash_init) {
-        s_random_flash_init = true;
-
-        if (nvs_get_random_cfg(&s_random_cfg) != ESP_OK) {
-            s_random_cfg.mode = false;
-        }
-    }
-
-    color_t color[8];
-    static bool ls = 0;
-
-    if(s_random_cfg.mode == true) {
-        ls = true;
-    }
-
-    if(ls) {
-        for(int i = 0;i < 8;i++) {
-            uint32_t rnd = esp_random();
-            color[i].r = (uint8_t)(rnd & 0xFF);
-            color[i].g = (uint8_t)((rnd >> 8) & 0xFF);
-            color[i].b = (uint8_t)((rnd >> 16) & 0xFF);
-        }
-
-        light_fill_advance(color);
-    } else {
-        light_fill(0,0,0);
-    }
-    ls = !ls;
-}
-
-/*
- * @brief 闪烁灯效配置对象。
- */
-blink_cfg_t s_blink_cfg;
-bool s_blink_init;
-
-/*
- * @brief 获取闪烁灯效配置。
- */
-blink_cfg_t* light_get_blink_cfg(void) {
-    return &s_blink_cfg;
-}
-
-/*
- * @brief 生成闪烁灯效。
- */
-void light_blink(void) {
-    if(!s_blink_init) {
-        s_blink_init = true;
-
-        if (nvs_get_blink_cfg(&s_blink_cfg) != ESP_OK) {
-            static color_t color_static[] = {
-                {147,255,255},
-                {0,0,0},
-            };
-            s_blink_cfg.colors = color_static;
-            s_blink_cfg.period = 500;
-        }
-    }
-
-
-    color_t* colors = s_blink_cfg.colors;
-
-
-    static bool ls = 0;
-
-    if(ls) {
-        light_fill(colors[0].r, colors[0].g, colors[0].b);
-    } else {
-        light_fill(colors[1].r, colors[1].g, colors[1].b);
-    }
-    ls = !ls;
-    vTaskDelay(pdMS_TO_TICKS((int)s_blink_cfg.period - (int)s_light.update_period >= 0 ? s_blink_cfg.period - s_light.update_period : 0));
-}
-
-/*
- * @brief 自定义呼吸灯效配置对象。
- */
-custom_breath_cfg_t s_custom_breath_cfg;
-bool s_custom_breath_init;
-
-/*
- * @brief 获取自定义呼吸灯效配置。
- */
-custom_breath_cfg_t* light_get_custom_breath_cfg(void) {
-    return &s_custom_breath_cfg;
-}
-
-/*
- * @brief 生成自定义多段渐变呼吸灯效。
- */
-void light_custom_breath(void) {
-    if(!s_custom_breath_init) {
-        s_custom_breath_init = true;
-
-        if (nvs_get_custom_breath_cfg(&s_custom_breath_cfg) != ESP_OK) {
-            static color_t colors[] = {
-                {255,160,122},
-                {255,250,205},
-                {0,250,154},
-                {0,255,255},
-                {0,191,255},
-                {123,104,238},
-                {238,130,238},
-                {138,43,226},
-                {255,182,193},
-            };
-
-            static uint16_t fades_ms[] = {
-                500, 500, 500, 500, 500, 500, 500, 500, 500,
-            };
-            s_custom_breath_cfg.colors = colors;
-            s_custom_breath_cfg.fades_ms = fades_ms;
-            s_custom_breath_cfg.size = sizeof(colors) / sizeof(colors[0]);
-        }
-    }
-
-
-    color_t* colors = s_custom_breath_cfg.colors;
-    uint16_t* fades_ms = s_custom_breath_cfg.fades_ms;
-
-
-
-    uint8_t color_count = s_custom_breath_cfg.size;
-
-    static int current = 0;
-    static int next = 1;
-    static uint32_t step = 0;
-
-    const color_t c0 = colors[current];
-    const color_t c1 = colors[next];
-
-    uint32_t fade_steps = fades_ms[current] / s_light.update_period;
-    if (fade_steps == 0) {
-        fade_steps = 1;
-    }
-
-    uint8_t r = (uint8_t)(c0.r + ((int)(c1.r - c0.r) * (int)step) / (int)fade_steps);
-    uint8_t g = (uint8_t)(c0.g + ((int)(c1.g - c0.g) * (int)step) / (int)fade_steps);
-    uint8_t b = (uint8_t)(c0.b + ((int)(c1.b - c0.b) * (int)step) / (int)fade_steps);
-
-    light_fill(r, g, b);
-
-    step++;
-    if (step >= fade_steps) {
-        step = 0;
-        current = next;
-        next = (next + 1) % color_count;
-    }
-
-}
-
-/*
- * @brief 流光灯效配置对象。
- */
-chase_cfg_t s_chase_cfg;
-bool s_chase_init;
-
-/*
- * @brief 获取流光灯效配置。
- */
-chase_cfg_t* light_get_chase_cfg(void) {
-    return &s_chase_cfg;
-}
-
-/*
- * @brief 生成流光灯效。
- */
-void light_chase(void) {
-    if(!s_chase_init) {
-        s_chase_init = true;
-
-        if (nvs_get_chase_cfg(&s_chase_cfg) != ESP_OK) {
-            static color_t colors[] = {
-                {255,52,241},
-                {12,13,255},
-                {255,52,241},
-                {255,52,241},
-            };
-            s_chase_cfg.colors = colors;
-            s_chase_cfg.size = sizeof(colors) / sizeof(colors[0]);
-        }
-    }
-
-    const color_t* colors = s_chase_cfg.colors;
-
-
-    const int color_count = s_chase_cfg.size;
-
-    static int current = 0;
-    static int next = 1;
-    static uint8_t pixel_steps = 0;
-    static int16_t stepping[LIGHT_PIXEL_COUNT] = {0};
-
-    const uint32_t fade_steps = 100;
-    const uint32_t update_steps = 10;
-
-    color_t colors_update[LIGHT_PIXEL_COUNT];
-
-    const color_t c0 = colors[current];
-    const color_t c1 = colors[next];
-
-    if(pixel_steps % update_steps == 0) stepping[pixel_steps / update_steps] = 1;
-    for(int i = 0;i < 8;i++) {
-        colors_update[i].r = (uint8_t)(c0.r + ((int) (c1.r - c0.r) * (int)stepping[i]) / (int) fade_steps);
-        colors_update[i].g = (uint8_t)(c0.g + ((int) (c1.g - c0.g) * (int)stepping[i]) / (int) fade_steps);
-        colors_update[i].b = (uint8_t)(c0.b + ((int) (c1.b - c0.b) * (int)stepping[i]) / (int) fade_steps);
-        if(stepping[i] != fade_steps && stepping[i] != 0) stepping[i]++;
-    }
-    pixel_steps++;
-
-    light_fill_advance(colors_update);
-
-    if (stepping[LIGHT_PIXEL_COUNT - 1] >= fade_steps) {
-        current = next;
-        pixel_steps = 0;
-        memset(stepping, 0, sizeof stepping);
-        next = (next + 1) % color_count;
-    }
-
-}
-
-/*
- * @brief 环绕扫描灯效配置对象。
- */
-round_cfg_t s_round_cfg;
-
-/*
- * @brief 获取环绕扫描灯效配置。
- */
-round_cfg_t* light_get_round_cfg(void) {
-    return &s_round_cfg;
-}
-
-bool s_round_init;
-
-/*
- * @brief 生成环绕扫描灯效。
- */
-void light_round(void) {
-    if(!s_round_init) {
-        s_round_init = true;
-
-        if (nvs_get_round_cfg(&s_round_cfg) != ESP_OK) {
-            color_t color_main = {255,52,241};
-            color_t color_sub = {12,13,255};
-
-            s_round_cfg.color_main = color_main;
-            s_round_cfg.color_sub =  color_sub;
-            s_round_cfg.range = 5;
-            s_round_cfg.range_main = 1;
-            s_round_cfg.center_speed = 1;
-            s_round_cfg.wait_ms = 2000;
-        }
-    }
-
-    const float range = s_round_cfg.range;
-    const float range_main = s_round_cfg.range_main;
-    const color_t color_main = s_round_cfg.color_main;
-    const color_t color_sub = s_round_cfg.color_sub;
-    const float center_speed = s_round_cfg.center_speed;
-    const int32_t wait_ms = s_round_cfg.wait_ms;
-
-
-    color_t colors_update[LIGHT_PIXEL_COUNT];
-
-
-    static float pos_idx = -3.0f;
-
-    for (int i = 0; i < LIGHT_PIXEL_COUNT; i++) {
-        float dist = fabsf((float)i - pos_idx);
-        if (dist <= range_main) {
-            colors_update[i] = color_sub;
-        }
-        else if (dist < range) {
-            float fades_percentage = (dist - range_main) / (range - range_main);
-            colors_update[i].r = (uint8_t)(
-                (float)color_sub.r + ((float)color_main.r - (float)color_sub.r) * fades_percentage
-            );
-            colors_update[i].g = (uint8_t)(
-                (float)color_sub.g + ((float)color_main.g - (float)color_sub.g) * fades_percentage
-            );
-            colors_update[i].b = (uint8_t)(
-                (float)color_sub.b + ((float)color_main.b - (float)color_sub.b) * fades_percentage
-            );
-        }
-        else {
-            colors_update[i] = color_main;
-        }
-    }
-
-    pos_idx += center_speed * ((float)s_light.update_period / 1000.0f);
-
-    if (pos_idx >= (float)LIGHT_PIXEL_COUNT + range + center_speed * wait_ms / 1000) {
-        pos_idx = -s_round_cfg.range;
-    }
-
-    light_fill_advance(colors_update);
-}
-
-/*
- * @brief 默认静态灯效配置对象。
- */
-color_t s_static_cfg;
-
-/*
- * @brief 获取默认静态灯效配置。
- */
 color_t* light_get_static_cfg(void) {
+    light_modes_init();
     return &s_static_cfg;
 }
 
-bool s_static_init;
+rainbow_cfg_t* light_rainbow_get_cfg(void) {
+    light_modes_init();
+    return &s_rainbow_eff;
+}
+
+breath_cfg_t* light_get_breath_cfg(void) {
+    light_modes_init();
+    return &s_breath_cfg;
+}
+
+random_cfg_t* light_get_random_cfg(void) {
+    light_modes_init();
+    return &s_random_cfg;
+}
+
+blink_cfg_t* light_get_blink_cfg(void) {
+    light_modes_init();
+    return &s_blink_cfg;
+}
+
+custom_breath_cfg_t* light_get_custom_breath_cfg(void) {
+    light_modes_init();
+    return &s_custom_breath_cfg;
+}
+
+chase_cfg_t* light_get_chase_cfg(void) {
+    light_modes_init();
+    return &s_chase_cfg;
+}
+
+round_cfg_t* light_get_round_cfg(void) {
+    light_modes_init();
+    return &s_round_cfg;
+}
 
 /*
- * @brief 生成默认静态灯效。
+ * @brief 进入模式时从头播放；配置加载状态不受动画重置影响。
  */
-void light_static(void) {
-    if(!s_static_init) {
-        s_static_init = true;
+void light_mode_reset(light_mode_t mode) {
+    light_modes_init();
+    switch (mode) {
+    case LIGHT_MODE_RAINBOW:
+        s_rainbow_state = (fade_state_t){0};
+        break;
+    case LIGHT_MODE_BREATH:
+        s_breath_state = (fade_state_t){0};
+        break;
+    case LIGHT_MODE_RANDOM_FLASH:
+        s_random_on = false;
+        break;
+    case LIGHT_MODE_BLINK:
+        s_blink_elapsed_ms = 0;
+        s_blink_color = 1;
+        break;
+    case LIGHT_MODE_CUSTOM_BREATH:
+        s_custom_state = (fade_state_t){0};
+        break;
+    case LIGHT_MODE_CHASE:
+        s_chase_state = (fade_state_t){0};
+        break;
+    case LIGHT_MODE_ROUND:
+        s_round_pos = -s_round_cfg.range;
+        break;
+    default:
+        break;
+    }
+}
 
-        if (nvs_get_static_cfg(&s_static_cfg) != ESP_OK) {
-            s_static_cfg.r = 255;
-            s_static_cfg.g = 255;
-            s_static_cfg.b = 0;
+/*
+ * @brief 更新等时长分段动画。周期改变时累计时间保持不变。
+ */
+static void fade_advance(fade_state_t* state, uint32_t delta_ms,
+                         uint32_t duration_ms, uint8_t color_count) {
+    if (color_count == 0) {
+        *state = (fade_state_t){0};
+        return;
+    }
+    if (state->current >= color_count) {
+        *state = (fade_state_t){0};
+    }
+    if (duration_ms == 0) {
+        state->elapsed_ms = 0;
+        return;
+    }
+
+    uint64_t elapsed = (uint64_t)state->elapsed_ms + delta_ms;
+    state->current = (uint8_t)((state->current + elapsed / duration_ms) % color_count);
+    state->elapsed_ms = (uint32_t)(elapsed % duration_ms);
+}
+
+static color_t color_lerp(color_t from, color_t to,
+                          uint32_t elapsed_ms, uint32_t duration_ms) {
+    /* 即使运行配置被直接改成零时间，也只立即完成，不执行除零。 */
+    if (duration_ms == 0 || elapsed_ms >= duration_ms) {
+        return to;
+    }
+    color_t color = {
+        .r = (uint8_t)(from.r + ((int32_t)to.r - from.r) * (int32_t)elapsed_ms / (int32_t)duration_ms),
+        .g = (uint8_t)(from.g + ((int32_t)to.g - from.g) * (int32_t)elapsed_ms / (int32_t)duration_ms),
+        .b = (uint8_t)(from.b + ((int32_t)to.b - from.b) * (int32_t)elapsed_ms / (int32_t)duration_ms),
+    };
+    return color;
+}
+
+static void light_fill_color(color_t color) {
+    light_fill(color.r, color.g, color.b);
+}
+
+void light_static(void) {
+    light_fill_color(*light_get_static_cfg());
+}
+
+void light_rainbow(uint32_t delta_ms) {
+    const rainbow_cfg_t cfg = *light_rainbow_get_cfg();
+    static const color_t colors[] = {
+        {255, 0, 0}, {0, 255, 0}, {0, 0, 255},
+    };
+    const uint8_t count = sizeof(colors) / sizeof(colors[0]);
+    fade_advance(&s_rainbow_state, delta_ms, cfg.switch_ms, count);
+    uint8_t next = (s_rainbow_state.current + 1) % count;
+    light_fill_color(color_lerp(colors[s_rainbow_state.current], colors[next],
+                               s_rainbow_state.elapsed_ms, cfg.switch_ms));
+}
+
+void light_breathe(uint32_t delta_ms) {
+    const breath_cfg_t cfg = *light_get_breath_cfg();
+    color_t colors[] = {cfg.color, {0, 0, 0}};
+    fade_advance(&s_breath_state, delta_ms, cfg.switch_ms, 2);
+    uint8_t next = (s_breath_state.current + 1) % 2;
+    light_fill_color(color_lerp(colors[s_breath_state.current], colors[next],
+                               s_breath_state.elapsed_ms, cfg.switch_ms));
+}
+
+void light_random_flash(void) {
+    const random_cfg_t cfg = *light_get_random_cfg();
+    if (cfg.mode) {
+        s_random_on = true;
+    }
+    if (s_random_on) {
+        color_t colors[LIGHT_PIXEL_COUNT];
+        for (int i = 0; i < LIGHT_PIXEL_COUNT; i++) {
+            uint32_t rnd = esp_random();
+            colors[i] = (color_t){
+                .r = (uint8_t)rnd,
+                .g = (uint8_t)(rnd >> 8),
+                .b = (uint8_t)(rnd >> 16),
+            };
+        }
+        light_fill_advance(colors);
+    } else {
+        light_clear();
+    }
+    s_random_on = !s_random_on;
+}
+
+void light_blink(uint32_t delta_ms) {
+    const blink_cfg_t cfg = *light_get_blink_cfg();
+    if (cfg.colors == NULL) {
+        light_clear();
+        return;
+    }
+    if (cfg.period == 0) {
+        s_blink_elapsed_ms = 0;
+        s_blink_color = 0;
+    } else {
+        uint64_t elapsed = (uint64_t)s_blink_elapsed_ms + delta_ms;
+        s_blink_color ^= (uint8_t)((elapsed / cfg.period) & 1U);
+        s_blink_elapsed_ms = (uint32_t)(elapsed % cfg.period);
+    }
+    light_fill_color(cfg.colors[s_blink_color]);
+}
+
+void light_custom_breath(uint32_t delta_ms) {
+    const custom_breath_cfg_t cfg = *light_get_custom_breath_cfg();
+    if (cfg.colors == NULL || cfg.fades_ms == NULL ||
+        cfg.size == 0 || cfg.size > LIGHT_CFG_MAX_COLORS) {
+        light_clear();
+        return;
+    }
+    if (cfg.size == 1) {
+        light_fill_color(cfg.colors[0]);
+        return;
+    }
+    if (s_custom_state.current >= cfg.size) {
+        s_custom_state = (fade_state_t){0};
+    }
+
+    uint32_t cycle_ms = 0;
+    for (int i = 0; i < cfg.size; i++) {
+        cycle_ms += cfg.fades_ms[i];
+    }
+    if (cycle_ms == 0) {
+        s_custom_state = (fade_state_t){0};
+        light_fill_color(cfg.colors[0]);
+        return;
+    }
+
+    uint64_t elapsed = ((uint64_t)s_custom_state.elapsed_ms + delta_ms) % cycle_ms;
+    /* 最多跨过一整轮；零时间段直接跳过，避免死循环。 */
+    for (int i = 0; i < cfg.size; i++) {
+        uint16_t duration_ms = cfg.fades_ms[s_custom_state.current];
+        if (duration_ms != 0 && elapsed < duration_ms) {
+            break;
+        }
+        elapsed -= duration_ms;
+        s_custom_state.current = (s_custom_state.current + 1) % cfg.size;
+    }
+    s_custom_state.elapsed_ms = (uint32_t)elapsed;
+    uint8_t next = (s_custom_state.current + 1) % cfg.size;
+    light_fill_color(color_lerp(cfg.colors[s_custom_state.current], cfg.colors[next],
+                               s_custom_state.elapsed_ms, cfg.fades_ms[s_custom_state.current]));
+}
+
+void light_chase(uint32_t delta_ms) {
+    const chase_cfg_t cfg = *light_get_chase_cfg();
+    if (cfg.colors == NULL || cfg.size == 0 || cfg.size > LIGHT_CFG_MAX_COLORS) {
+        light_clear();
+        return;
+    }
+
+    const uint32_t cycle_ms = CHASE_FADE_MS +
+                             (LIGHT_PIXEL_COUNT - 1U) * CHASE_START_INTERVAL_MS;
+    fade_advance(&s_chase_state, delta_ms, cycle_ms, cfg.size);
+    uint8_t next = (s_chase_state.current + 1) % cfg.size;
+    color_t colors[LIGHT_PIXEL_COUNT];
+    for (int i = 0; i < LIGHT_PIXEL_COUNT; i++) {
+        uint32_t start_ms = (uint32_t)i * CHASE_START_INTERVAL_MS;
+        uint32_t elapsed_ms = s_chase_state.elapsed_ms > start_ms ?
+                              s_chase_state.elapsed_ms - start_ms : 0;
+        colors[i] = color_lerp(cfg.colors[s_chase_state.current], cfg.colors[next],
+                               elapsed_ms, CHASE_FADE_MS);
+    }
+    light_fill_advance(colors);
+}
+
+void light_round(uint32_t delta_ms) {
+    const round_cfg_t cfg = *light_get_round_cfg();
+    if (!light_round_cfg_is_valid(&cfg)) {
+        light_clear();
+        return;
+    }
+
+    s_round_pos += cfg.center_speed * ((float)delta_ms / 1000.0f);
+    float end_pos = (float)LIGHT_PIXEL_COUNT + cfg.range +
+                    cfg.center_speed * ((float)cfg.wait_ms / 1000.0f);
+    if (s_round_pos >= end_pos) {
+        s_round_pos = -cfg.range + fmodf(s_round_pos + cfg.range, end_pos + cfg.range);
+    }
+
+    color_t colors[LIGHT_PIXEL_COUNT];
+    for (int i = 0; i < LIGHT_PIXEL_COUNT; i++) {
+        float dist = fabsf((float)i - s_round_pos);
+        if (dist <= cfg.range_main) {
+            colors[i] = cfg.color_sub;
+        } else if (dist < cfg.range) {
+            float phase = (dist - cfg.range_main) / (cfg.range - cfg.range_main);
+            colors[i] = (color_t){
+                .r = (uint8_t)(cfg.color_sub.r + ((float)cfg.color_main.r - cfg.color_sub.r) * phase),
+                .g = (uint8_t)(cfg.color_sub.g + ((float)cfg.color_main.g - cfg.color_sub.g) * phase),
+                .b = (uint8_t)(cfg.color_sub.b + ((float)cfg.color_main.b - cfg.color_sub.b) * phase),
+            };
+        } else {
+            colors[i] = cfg.color_main;
         }
     }
-    light_fill(s_static_cfg.r, s_static_cfg.g, s_static_cfg.b);
+    light_fill_advance(colors);
 }

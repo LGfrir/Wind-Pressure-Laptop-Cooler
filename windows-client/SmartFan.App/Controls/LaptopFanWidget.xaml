@@ -1,0 +1,17 @@
+<UserControl x:Class="SmartFan.App.Controls.LaptopFanWidget" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:SmartFan.App.Controls" ToolTip="{Binding LaptopFanDetail}">
+  <Grid>
+    <Grid.RowDefinitions><RowDefinition/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <ItemsControl x:Name="Fans" ItemsSource="{Binding LaptopFans}" VerticalAlignment="Center">
+      <ItemsControl.ItemTemplate><DataTemplate>
+        <Grid Height="{Binding FanRowHeight,RelativeSource={RelativeSource AncestorType={x:Type local:LaptopFanWidget}},Mode=OneWay}"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+          <TextBlock Text="{Binding Name}" ToolTip="{Binding Name}" FontSize="{Binding FanLabelSize,RelativeSource={RelativeSource AncestorType={x:Type local:LaptopFanWidget}},Mode=OneWay}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}"/>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"><TextBlock Text="{Binding Rpm,StringFormat={}{0:N0},TargetNullValue=—}" FontSize="{Binding FanNumberSize,RelativeSource={RelativeSource AncestorType={x:Type local:LaptopFanWidget}},Mode=OneWay}" TextWrapping="NoWrap" FontWeight="{DynamicResource UiMetricWeight}"/><TextBlock Text=" RPM" FontSize="{Binding FanUnitSize,RelativeSource={RelativeSource AncestorType={x:Type local:LaptopFanWidget}},Mode=OneWay}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="3,0,0,0"/></StackPanel>
+        </Grid>
+      </DataTemplate></ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <TextBlock Text="{Binding LaptopFanSummary}" FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" VerticalAlignment="Center">
+      <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding HasItems,ElementName=Fans}" Value="False"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+    </TextBlock>
+    <TextBlock x:Name="SourceFooter" Grid.Row="1" Text="本机传感器 · 与底座独立" FontSize="10" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource MutedBrush}" Margin="0,5,0,0"/>
+  </Grid>
+</UserControl>
