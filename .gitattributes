@@ -1,0 +1,4 @@
+# GitHub Linguist: keep the language bar focused on the ESP-IDF firmware.
+# The Windows C# client is first-party code, but it should not dominate the
+# repository language statistics.
+APP/** linguist-detectable=false
