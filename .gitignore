@@ -1,0 +1,24 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vs/
+
+# Build outputs
+**/build/
+**/build_codex_ps/
+**/bin/
+**/obj/
+**/artifacts/
+**/managed_components/
+**/sdkconfig
+**/sdkconfig.old
+
+# Python
+__pycache__/
+*.pyc
+
+# Secrets / local
+*.pfx
+*.snk
+*.user

@@ -3,6 +3,8 @@
 > 日期：2026-10-16　操作人：DSH（接管自 Codex 额度耗尽处）
 > 环境：ESP32-S3 开发板（QFN56 rev v0.2，8MB PSRAM），COM7 = 原生 USB-Serial-JTAG
 
+> 目录更新（2026-10-19）：C# 客户端现位于 `G:\Csharp\LaptopCoolerClient`。下文 Windows 客户端段落中的旧源码路径与测试结果保留为历史记录；当前入口与迁移说明见该客户端的 `README.md`、`docs/PROJECT-MIGRATION-2026-10-19.md`。Python 板级调试工具仍在本固件仓库。
+
 ## 一、串口通道结论（重要，供你决定固件方向）
 
 | 通道 | 固件现状 | PC 可达性 |

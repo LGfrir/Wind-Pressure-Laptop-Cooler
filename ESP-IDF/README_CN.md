@@ -2,6 +2,8 @@
 
 SmartFan 是一个基于 ESP-IDF 的 ESP32-S3 智能风扇控制项目。项目集成了风扇 PWM 调速、Tach 转速反馈、旋转编码器输入、OLED 菜单交互、ARGB 灯效、系统资源监控和 UART 串口调试功能。
 
+C# Windows 客户端已独立迁移到 `G:\Csharp\LaptopCoolerClient`（[WPLC-Client 仓库](https://github.com/LGfrir/WPLC-Client)），请在 Rider 中打开该目录的 `SmartFan.sln`。本仓库保留 ESP 固件及 Python 板级联调工具。
+
 ## 功能特性
 
 - **风扇 PWM 控制**

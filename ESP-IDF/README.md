@@ -2,6 +2,8 @@
 
 SmartFan is an ESP-IDF based smart fan controller for ESP32-S3. It integrates PWM fan speed control, tachometer RPM feedback, rotary encoder input, OLED menu interaction, ARGB lighting effects, system monitoring, and UART-based debugging.
 
+The C# Windows client is maintained separately in `G:\Csharp\LaptopCoolerClient` ([WPLC-Client](https://github.com/LGfrir/WPLC-Client)). Open `SmartFan.sln` there in Rider. This repository contains the ESP firmware and its Python board/debugging tools.
+
 ## Features
 
 - **PWM fan control**
