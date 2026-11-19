@@ -1,0 +1,38 @@
+{
+  "SchemaVersion": 1,
+  "EnabledTelemetry": false,
+  "AutoConnect": false,
+  "AutoReconnect": true,
+  "ReconnectInitialSeconds": 2,
+  "SavedDevice": null,
+  "DemoMode": false,
+  "AutoUploadConfiguration": false,
+  "AutoUploadProfile": null,
+  "Telemetry": {
+    "Enabled": false,
+    "IntervalMs": 1000,
+    "RamWireUnit": "Unspecified",
+    "SensorPreferences": {
+      "GpuHardwareId": null,
+      "CpuTemperatureSensorId": null,
+      "GpuTemperatureSensorId": null,
+      "ManualFanCount": null
+    },
+    "EnabledItems": {
+      "laptop_cpu_usage": true,
+      "laptop_cpu_temp": true,
+      "laptop_cpu_volta": true,
+      "laptop_cpu_clock": true,
+      "laptop_gpu_usage": true,
+      "laptop_gpu_temp": true,
+      "laptop_gpu_clock": true,
+      "laptop_gpu_ram": true,
+      "laptop_gpu_tot_r": true,
+      "laptop_ram": true,
+      "laptop_tot_ram": true,
+      "laptop_fan_used": false,
+      "laptop_fan_speed": false
+    }
+  },
+  "LogLevel": "Information"
+}
